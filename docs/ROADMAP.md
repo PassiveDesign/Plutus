@@ -21,7 +21,7 @@ Feature scope is a first draft — edit freely.
 
 - [x] Schema + Rust model + repository: accounts (12 kinds incl. offset, home loan, super, shares, investment, property), offset → loan links, BSB/account number, opening balance/date, archive; validation; tests
 - [x] Tauri commands (`list_accounts`, `create_account`, `update_account`, `set_account_archived`) + typed TS API + field-error display (`invalid`/`conflict` codes → TextField errors)
-- [ ] Accounts page: grouped table (Banking / Credit & loans / Investments & super / Other) with balances, add/edit modal, archive/restore, show-archived toggle
+- [x] Accounts page: grouped table (Banking / Credit & loans / Investments & super / Other) with balances, add/edit modal, archive/restore, show-archived toggle
 - [ ] Offset linking in the UI: pick a loan for an offset account; loan row shows its offsets and the net (loan + offsets) owed
 
 ## M2 — Transactions

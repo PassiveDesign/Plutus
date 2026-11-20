@@ -68,3 +68,8 @@ Short, dated entries. Future sessions follow these without re-deciding.
 - **2026-11-20 — Validation errors** are `DbError::Invalid { field, message }`
   (code `invalid`) and `Conflict { field, message }` (code `conflict`); the UI
   shows `message` on the matching form field.
+- **2026-11-20 — One money parser.** Typed amounts go through the
+  `parse_money` command (Rust `Money::parse`); the UI never parses money.
+  Errors come back as code `invalid_amount` with a friendly message.
+- **2026-11-20 — Accounts page loads all accounts (archived included)** and
+  filters client-side, so offset links to archived loans can still be named.

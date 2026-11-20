@@ -28,6 +28,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `isLiability`/`isValued`/`canBeOffsetTarget`, `formatBsb`, `groupAccounts`,
   `totalCents`. Kind display order pinned on both sides (Cash moved next to
   Savings).
+- **Accounts page done:** `src/pages/AccountsPage.tsx` (grouped tables, group
+  + net totals, offset subtitles, archived toggle/badge, empty state, load
+  error retry) and `AccountForm.tsx` (modal; liabilities entered as positive
+  "amount owed"; amounts via `parse_money`; inline field errors; archive/
+  restore; keeps existing `offset_for`). `SelectField` component,
+  `DataTable.rowClassName`. 10 page tests; checked in mocked preview
+  (fixed a grid overflow in the form).
 - **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
   icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
   version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
@@ -68,25 +75,18 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M1 — Accounts page** (`src/pages/AccountsPage.tsx`, switch in `AppShell`):
-- Load with `api.listAccounts(showArchived)`; empty state with an
-  "Add account" button.
-- One `DataTable` per group from `groupAccounts()` with a group total row/
-  heading; columns: Name (+ institution muted), Type (`KIND_LABELS`),
-  BSB/Acc no. (`formatBsb`), Balance (money column; balance = opening
-  balance until M2 transactions exist). Archived rows muted.
-- Header: "Add account" button, "Show archived" checkbox, net total.
-- Add/Edit in a `Modal`: name, type (select in `KIND_ORDER`, grouped
-  `<optgroup>`), institution, BSB, account number, opening balance (text →
-  parse in Rust? No: send cents — parse in UI with a strict `parseCents`
-  mirroring Rust `Money::parse`, OR add a `parse_money` command; prefer the
-  command to keep one parser), opening date (`<input type=date>`), notes.
-  For liabilities, label the balance "Amount owed" and negate on save.
-  Offset-for picker is the *next* task — omit for now (send `null`, but
-  preserve an existing link on edit).
-- Errors: `splitError` → field errors on TextFields, general → toast.
-- Archive/Restore from the edit modal.
-- Tests with mocked api; check in mocked browser preview (light + dark).
+**M1 — Offset linking in the UI** (last M1 task):
+- `AccountForm`: when type is `offset`, show a "Offsets loan" `SelectField`
+  listing active `home_loan`/`loan` accounts (+ "Not linked"); pass the list
+  in from `AccountsPage`. Keep the current link even if that loan is archived
+  (show it labelled "(archived)").
+- Loan rows: subtitle "N offsets" and an extra line or tooltip with the
+  **net owed** = loan balance + linked active offset balances (this is what
+  interest is charged on). Compute in TS from the loaded list (pure helper
+  in `src/lib/accounts.ts` + tests).
+- Tests + mocked preview. Then cut **v0.2.0** for the owner to try entering
+  real accounts (bump 3 version files, tag, watch Release, smoke test incl.
+  v0.1.0 → v0.2.0 database upgrade).
 
 ## Open questions for the owner
 
