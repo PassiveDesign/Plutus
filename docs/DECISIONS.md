@@ -38,3 +38,7 @@ Short, dated entries. Future sessions follow these without re-deciding.
   iterations, random per-file salt). Password passed as passphrase with
   `PRAGMA key`. Migrations are a small in-house runner on `PRAGMA user_version`
   (no extra crate).
+- **2026-11-20 — Icons: `lucide-react`** (tree-shaken, only used icons ship).
+- **2026-11-20 — No router library yet.** Page switching is a `PageId` state in
+  `src/shell/AppShell.tsx`; pages are registered in `src/shell/pages.ts`. Add
+  `react-router` only if deep links/history become necessary.

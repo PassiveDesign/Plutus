@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, AppInfo, errorMessage, VaultStatus } from "./lib/api";
 import { SetupScreen } from "./screens/SetupScreen";
 import { UnlockScreen } from "./screens/UnlockScreen";
+import { AppShell } from "./shell/AppShell";
 import "./App.css";
 
 function App() {
@@ -18,10 +19,10 @@ function App() {
     refresh();
   }, [refresh]);
 
-  async function lock() {
+  const lock = useCallback(async () => {
     await api.lockVault();
     refresh();
-  }
+  }, [refresh]);
 
   if (fatal) {
     return (
@@ -46,19 +47,7 @@ function App() {
     return <UnlockScreen onUnlocked={refresh} />;
   }
 
-  // Unlocked: the real app shell replaces this in the next roadmap task.
-  return (
-    <main className="container">
-      <h1>Plutus</h1>
-      <p className="tagline">Personal finances, kept on your machine.</p>
-      <button className="secondary" onClick={lock}>
-        Lock
-      </button>
-      <p className="meta">
-        v{info.version} · {info.os}
-      </p>
-    </main>
-  );
+  return <AppShell version={info.version} onLock={lock} />;
 }
 
 export default App;

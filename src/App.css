@@ -14,6 +14,9 @@
   --danger: #c53030;
   --warning-bg: #fff8e1;
   --warning-border: #f0c36d;
+  --sidebar-bg: #eef2f6;
+  --hover: #e1e7ee;
+  --accent-soft: #dcefe4;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,6 +32,9 @@
     --danger: #fc8181;
     --warning-bg: #3a3220;
     --warning-border: #8a6d2b;
+    --sidebar-bg: #1f2328;
+    --hover: #2c3138;
+    --accent-soft: #23392d;
   }
 }
 
@@ -36,30 +42,124 @@ body {
   margin: 0;
 }
 
-.container {
-  min-height: 100vh;
+h1 {
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+/* ---- App shell (unlocked) ---- */
+
+.shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 1rem 0.75rem;
+  box-sizing: border-box;
+}
+
+.brand {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  padding: 0.25rem 0.75rem 1.25rem;
+  color: var(--accent);
+}
+
+.nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-weight: 500;
+  text-align: left;
+}
+
+.nav-item:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.nav-item.active,
+.nav-item.active:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.version {
+  padding: 0.75rem 0.75rem 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-header {
+  padding: 1.5rem 2rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.page-header h1 {
+  font-size: 1.6rem;
+}
+
+.page-body {
+  flex: 1;
+  padding: 1.5rem 2rem;
+}
+
+.placeholder {
+  height: 100%;
+  min-height: 240px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
+  color: var(--muted);
+  gap: 0.25rem;
 }
 
-h1 {
-  font-size: 3rem;
+.placeholder p {
   margin: 0;
-  letter-spacing: -0.02em;
+  max-width: 420px;
 }
 
-.tagline {
-  margin: 0.5rem 0 1.5rem;
-  opacity: 0.8;
-}
-
-.meta {
-  margin-top: 2rem;
-  font-size: 0.85rem;
-  opacity: 0.5;
+.placeholder svg {
+  margin-bottom: 0.75rem;
+  opacity: 0.6;
 }
 
 /* ---- Auth screens (setup / unlock) ---- */

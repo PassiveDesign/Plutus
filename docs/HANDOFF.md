@@ -7,6 +7,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
 ## Current state
 
 - Scaffold + CI green on Windows/Linux. Release workflow not yet exercised.
+- **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
+  icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
+  version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
+  `src/pages/PlaceholderPage.tsx` for now. To build a real page: create
+  `src/pages/<Name>Page.tsx` and switch on `current` in `AppShell`.
+  Light + dark themes via CSS variables in `App.css`. Checked in the mocked
+  browser preview (nav, active state, dark mode, Ctrl+L, Lock button).
 - **Money type done** (`plutus-core::money::Money`): strict parser (`$1,234.56`,
   `(12.30)`, `-$5`, rejects `1.234`/bad grouping), Display `$1,234.56`,
   plain `1234.56`, checked arithmetic capped at ±2^53−1 cents, serde as
@@ -20,23 +27,24 @@ Rewritten at the end of every session. Read after AGENTS.md.
     Errors reach the UI as `{ code, message }`.
   - UI: `src/lib/api.ts` (typed wrappers), `src/screens/SetupScreen.tsx`
     (confirm field, no-recovery warning + checkbox), `UnlockScreen.tsx`.
-    `App.tsx` routes on vault status; unlocked view is still a placeholder
-    with a Lock button.
+    `App.tsx` routes on vault status.
   - Core tests pass locally; UI flow checked in a browser against a mocked
     backend (create → lock → wrong pw error → unlock). **Not yet run as a real
     desktop app** — needs the GTK/WebKit packages or the v0.1.0 installers.
 
 ## Next task
 
-**M0 — UI shell:** sidebar navigation (Dashboard, Accounts, Transactions,
-Budgets, Reports, Settings) with empty placeholder pages, shown only when
-unlocked; Lock button in the sidebar footer. No router library needed yet —
-a `page` state in `App.tsx` is enough; add `react-router` only if deep links
-become necessary. Verify with the mocked-backend browser preview (see
-desktop-app skill / AGENTS) before pushing.
+**M0 — Shared UI basics** (keep it small; build only what M1 Accounts needs):
+- `src/lib/money.ts`: `formatCents(cents)` matching Rust `Money` Display
+  (`$1,234.56`, `-$12.30`) — or expose formatting from Rust; pick one and
+  record it in DECISIONS. Add a TS test runner (Vitest) for it.
+- Reusable components in `src/components/`: `Button` (primary/secondary/
+  danger), `TextField` (label, hint, error), `Modal`/dialog, `DataTable`
+  (header, rows, empty state, right-aligned money column), `Toast` for errors.
+- Move shared CSS into a structured stylesheet if `App.css` gets unwieldy.
+Verify in the mocked browser preview, then push.
 
-After that: shared UI basics (incl. a TS `formatCents()` matching
-`Money`'s Display: `$1,234.56`, `-$12.30`), change-password, v0.1.0.
+After that: change-password (Settings page), then cut v0.1.0.
 
 ## Open questions for the owner
 
