@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use plutus_core::{
-    Account, AccountInput, Database, DbError, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction,
-    TransactionInput, TransactionQuery, Vault, accounts, transactions,
+    Account, AccountInput, Database, DbError, LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError,
+    Transaction, TransactionInput, TransactionQuery, Vault, accounts, transactions,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -190,13 +190,17 @@ async fn account_balances(state: State<'_, AppState>) -> CmdResult<HashMap<i64, 
     with_db(&state.vault, accounts::balances).await
 }
 
-/// One page of transactions, newest first.
+/// One page of transactions, newest first, with running balances when the
+/// query is for a single account.
 #[tauri::command]
 async fn list_transactions(
     state: State<'_, AppState>,
     query: TransactionQuery,
-) -> CmdResult<Vec<Transaction>> {
-    with_db(&state.vault, move |db| transactions::list(db, &query)).await
+) -> CmdResult<Vec<LedgerRow>> {
+    with_db(&state.vault, move |db| {
+        transactions::list_with_running_balance(db, &query)
+    })
+    .await
 }
 
 /// Total matching `query` (ignores paging), for page counts.
@@ -364,6 +368,17 @@ mod tests {
             let added = with_db(&vault, move |db| transactions::add(db, &tx))
                 .await
                 .unwrap();
+
+            let one = TransactionQuery {
+                account_id: Some(acct.id),
+                ..Default::default()
+            };
+            let rows = with_db(&vault, move |db| {
+                transactions::list_with_running_balance(db, &one)
+            })
+            .await
+            .unwrap();
+            assert_eq!(rows[0].running_balance.map(Money::cents), Some(12345 - 845));
 
             let n = with_db(&vault, |db| {
                 transactions::count(db, &TransactionQuery::default())

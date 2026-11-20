@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components";
-import { Account, api, Transaction, TransactionInput, TransactionQuery } from "../lib/api";
+import { Account, api, LedgerRow, Transaction, TransactionInput, TransactionQuery } from "../lib/api";
 import { TransactionsPage } from "./TransactionsPage";
 
 vi.mock("../lib/api", async (orig) => {
@@ -70,6 +70,22 @@ function matching(q: TransactionQuery) {
     .sort((a, b) => (a.date === b.date ? b.id - a.id : a.date < b.date ? 1 : -1));
 }
 
+/** Running balance per transaction id: opening + rows on/after the opening
+ *  date, in date then id order (mirrors list_with_running_balance). */
+function runningFor(accountId: number): Map<number, number> {
+  const a = accounts.find((x) => x.id === accountId)!;
+  const out = new Map<number, number>();
+  let bal = a.opening_balance;
+  for (const t of txs
+    .filter((x) => x.account_id === accountId)
+    .sort((x, y) => (x.date === y.date ? x.id - y.id : x.date < y.date ? -1 : 1))) {
+    if (t.date < a.opening_date) continue;
+    bal += t.amount;
+    out.set(t.id, bal);
+  }
+  return out;
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   nextId = 1;
@@ -78,7 +94,10 @@ beforeEach(() => {
   m.listAccounts.mockImplementation(async () => accounts);
   m.listTransactions.mockImplementation(async (q: TransactionQuery = {}) => {
     const off = q.offset ?? 0;
-    return matching(q).slice(off, off + (q.limit ?? 200));
+    const running = q.account_id == null ? new Map<number, number>() : runningFor(q.account_id);
+    return matching(q)
+      .slice(off, off + (q.limit ?? 200))
+      .map((t): LedgerRow => ({ ...t, running_balance: running.get(t.id) ?? null }));
   });
   m.countTransactions.mockImplementation(async (q: TransactionQuery = {}) => matching(q).length);
   m.parseMoney.mockImplementation(async (text: string) => {
@@ -258,6 +277,37 @@ describe("TransactionsPage", () => {
     const picker = within(screen.getByRole("dialog")).getByLabelText("Account");
     expect(picker).toHaveValue("3");
     expect(within(picker).getByRole("option", { name: "Old Saver (archived)" })).toBeInTheDocument();
+  });
+
+  it("shows a running balance only when filtered to one account", async () => {
+    accounts[0] = { ...accounts[0], opening_balance: 100_000, opening_date: "2026-11-01" };
+    txs = [
+      tx(1, "2026-10-20", -5_000, "Before opening"),
+      tx(1, "2026-11-05", -2_500, "Groceries"),
+      tx(1, "2026-11-10", 350_000, "Salary"),
+      tx(2, "2026-11-06", -1_000, "Other account"),
+    ];
+    const user = renderPage();
+    await screen.findByText("Salary");
+    expect(screen.queryByRole("columnheader", { name: "Balance" })).toBeNull();
+
+    await user.selectOptions(screen.getByLabelText("Account"), "1");
+    expect(await screen.findByRole("columnheader", { name: "Balance" })).toBeInTheDocument();
+    const [salary, groceries, before] = bodyRows();
+    expect(salary).toHaveTextContent("$4,475.00");
+    expect(groceries).toHaveTextContent("$975.00");
+    // Pre-opening rows are already in the opening balance.
+    expect(within(before).getByTitle("Before the account's opening date")).toHaveTextContent("—");
+  });
+
+  it("negative running balances are flagged", async () => {
+    accounts[0] = { ...accounts[0], kind: "credit_card", opening_balance: -10_000 };
+    txs = [tx(1, "2026-11-05", -2_500, "Fuel")];
+    const user = renderPage();
+    await screen.findByText("Fuel");
+    await user.selectOptions(screen.getByLabelText("Account"), "1");
+    const cell = await screen.findByText("-$125.00", { selector: "span" });
+    expect(cell).toHaveClass("money", "negative");
   });
 
   it("load failure shows a retry", async () => {

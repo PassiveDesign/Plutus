@@ -96,3 +96,7 @@ Short, dated entries. Future sessions follow these without re-deciding.
   parsing, which can shift the day across timezones).
 - **2026-11-21 — Deleting a transaction needs a second click** ("Really
   delete?") in the edit dialog; no undo yet.
+- **2026-11-21 — Running balances are computed in SQL** (window function over
+  the account's whole history, then filtered/paged), so date filters and
+  paging never change the figures. Shown only when the Transactions page is
+  filtered to one account; pre-opening rows show "—".

@@ -664,6 +664,12 @@ button:disabled {
   white-space: nowrap;
 }
 
+.data-table td .money {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.data-table td .money.negative,
 .data-table .money.negative {
   color: var(--danger);
 }

@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, Plus } from "lucide-react";
 import { Button, DataTable, SelectField, TextField, useToast } from "../components";
 import type { Column } from "../components";
-import { Account, api, errorMessage, Transaction, TransactionQuery } from "../lib/api";
+import { Account, api, errorMessage, LedgerRow, Transaction, TransactionQuery } from "../lib/api";
 import { formatDate } from "../lib/dates";
+import { formatCents } from "../lib/money";
 import { TransactionForm, TxVerb } from "./TransactionForm";
 
 export const PAGE_SIZE = 100;
@@ -15,7 +16,7 @@ export function TransactionsPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(0);
-  const [rows, setRows] = useState<Transaction[] | null>(null);
+  const [rows, setRows] = useState<LedgerRow[] | null>(null);
   const [total, setTotal] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Transaction | "new" | null>(null);
@@ -78,7 +79,7 @@ export function TransactionsPage() {
     void load();
   }
 
-  const columns: Column<Transaction>[] = [
+  const columns: Column<LedgerRow>[] = [
     { key: "date", header: "Date", width: "120px", render: (t) => formatDate(t.date) },
     {
       key: "payee",
@@ -105,6 +106,26 @@ export function TransactionsPage() {
         ]
       : []),
     { key: "amount", header: "Amount", width: "140px", money: (t) => t.amount },
+    ...(accountId !== null
+      ? [
+          {
+            key: "balance",
+            header: "Balance",
+            width: "150px",
+            align: "right" as const,
+            render: (t: LedgerRow) =>
+              t.running_balance === null ? (
+                <span className="muted" title="Before the account's opening date">
+                  —
+                </span>
+              ) : (
+                <span className={`money${t.running_balance < 0 ? " negative" : ""}`}>
+                  {formatCents(t.running_balance)}
+                </span>
+              ),
+          },
+        ]
+      : []),
     {
       key: "cleared",
       header: "Cleared",

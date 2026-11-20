@@ -101,6 +101,11 @@ export type Transaction = TransactionInput & {
   updated_at: string | null;
 };
 
+/** A listed transaction with the account balance after it. `running_balance`
+ *  is null unless the query is for one account, and for rows dated before the
+ *  account's opening date. */
+export type LedgerRow = Transaction & { running_balance: number | null };
+
 /** Dates inclusive (YYYY-MM-DD). Newest first; page size defaults to 200, max 1000. */
 export type TransactionQuery = {
   account_id?: number | null;
@@ -133,7 +138,7 @@ export const api = {
   accountBalances: () => invoke<Balances>("account_balances"),
 
   listTransactions: (query: TransactionQuery = {}) =>
-    invoke<Transaction[]>("list_transactions", { query }),
+    invoke<LedgerRow[]>("list_transactions", { query }),
   countTransactions: (query: TransactionQuery = {}) =>
     invoke<number>("count_transactions", { query }),
   addTransaction: (input: TransactionInput) => invoke<Transaction>("add_transaction", { input }),

@@ -259,6 +259,81 @@ pub fn list(db: &Database, q: &TransactionQuery) -> Result<Vec<Transaction>, DbE
     Ok(rows)
 }
 
+/// A listed transaction plus the account's balance after it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct LedgerRow {
+    #[serde(flatten)]
+    pub transaction: Transaction,
+    /// Account balance after this transaction (opening balance + every
+    /// transaction from the opening date up to and including this one, in
+    /// date then entry order). `None` when the query isn't for a single
+    /// account, or for rows dated before the account's opening date (already
+    /// reflected in the opening balance, so they don't move it).
+    pub running_balance: Option<Money>,
+}
+
+/// Like [`list`], with running balances when filtered to one account. The
+/// running total is computed over the account's whole history first, so date
+/// filters and paging don't change the figures.
+pub fn list_with_running_balance(
+    db: &Database,
+    q: &TransactionQuery,
+) -> Result<Vec<LedgerRow>, DbError> {
+    let Some(account_id) = q.account_id else {
+        return Ok(list(db, q)?
+            .into_iter()
+            .map(|transaction| LedgerRow {
+                transaction,
+                running_balance: None,
+            })
+            .collect());
+    };
+
+    let mut clauses: Vec<&str> = Vec::new();
+    let mut args: Vec<Box<dyn ToSql>> = vec![Box::new(account_id)];
+    if let Some(f) = q.from {
+        clauses.push("date >= ?");
+        args.push(Box::new(f));
+    }
+    if let Some(t) = q.to {
+        clauses.push("date <= ?");
+        args.push(Box::new(t));
+    }
+    let outer_where = if clauses.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", clauses.join(" AND "))
+    };
+    let limit = q.limit.unwrap_or(DEFAULT_PAGE).clamp(1, MAX_PAGE);
+    args.push(Box::new(limit));
+    args.push(Box::new(q.offset.unwrap_or(0)));
+
+    let sql = format!(
+        "SELECT * FROM ( \
+           SELECT t.id, t.account_id, t.date, t.amount_cents, t.payee, t.description, t.memo, \
+                  t.cleared, t.created_at, t.updated_at, \
+                  CASE WHEN t.date >= a.opening_date THEN \
+                    a.opening_balance_cents + SUM(CASE WHEN t.date >= a.opening_date \
+                                                       THEN t.amount_cents ELSE 0 END) \
+                      OVER (ORDER BY t.date, t.id ROWS UNBOUNDED PRECEDING) \
+                  END AS running \
+           FROM transactions t JOIN accounts a ON a.id = t.account_id \
+           WHERE t.account_id = ? \
+         ){outer_where} ORDER BY date DESC, id DESC LIMIT ? OFFSET ?"
+    );
+    let mut stmt = db.conn().prepare(&sql)?;
+    let refs: Vec<&dyn ToSql> = args.iter().map(|b| b.as_ref()).collect();
+    let rows = stmt
+        .query_map(refs.as_slice(), |r| {
+            Ok(LedgerRow {
+                transaction: from_row(r)?,
+                running_balance: r.get::<_, Option<i64>>(10)?.map(Money::from_cents),
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
 /// Number of transactions matching the filter (ignores limit/offset).
 pub fn count(db: &Database, q: &TransactionQuery) -> Result<u64, DbError> {
     let (where_sql, args) = filter(q);
@@ -593,6 +668,137 @@ mod tests {
             accounts::balance(&db, acct).unwrap(),
             Money::from_cents(-420)
         );
+    }
+
+    fn running(db: &Database, q: TransactionQuery) -> Vec<(String, Option<i64>)> {
+        list_with_running_balance(db, &q)
+            .unwrap()
+            .into_iter()
+            .map(|r| {
+                (
+                    r.transaction.payee.unwrap(),
+                    r.running_balance.map(Money::cents),
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn running_balance_follows_date_then_entry_order() {
+        let (_d, db, a) = setup(); // opening $1,000.00 as at 2026-11-01
+        add(&db, &tx(a, "2026-11-10", -2_000, "second")).unwrap();
+        add(&db, &tx(a, "2026-11-05", -1_000, "first")).unwrap();
+        add(
+            &db,
+            &tx(a, "2026-11-10", 500, "third (same day, entered later)"),
+        )
+        .unwrap();
+        add(&db, &tx(a, "2026-10-20", -99_999, "pre-opening")).unwrap();
+        let q = TransactionQuery {
+            account_id: Some(a),
+            ..Default::default()
+        };
+        assert_eq!(
+            running(&db, q),
+            [
+                ("third (same day, entered later)".to_string(), Some(97_500)),
+                ("second".to_string(), Some(97_000)),
+                ("first".to_string(), Some(99_000)),
+                ("pre-opening".to_string(), None),
+            ]
+        );
+        // Newest running balance equals the account balance.
+        assert_eq!(
+            accounts::balance(&db, a).unwrap(),
+            Money::from_cents(97_500)
+        );
+    }
+
+    #[test]
+    fn date_filters_and_paging_do_not_change_running_figures() {
+        let (_d, db, a) = setup();
+        for (d, c, p) in [
+            ("2026-11-02", -100, "a"),
+            ("2026-11-03", -200, "b"),
+            ("2026-11-04", -300, "c"),
+            ("2026-11-05", -400, "d"),
+        ] {
+            add(&db, &tx(a, d, c, p)).unwrap();
+        }
+        let filtered = running(
+            &db,
+            TransactionQuery {
+                account_id: Some(a),
+                from: Some(date("2026-11-03")),
+                to: Some(date("2026-11-04")),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            filtered,
+            [
+                ("c".to_string(), Some(99_400)),
+                ("b".to_string(), Some(99_700))
+            ]
+        );
+        let page2 = running(
+            &db,
+            TransactionQuery {
+                account_id: Some(a),
+                limit: Some(2),
+                offset: Some(2),
+                ..Default::default()
+            },
+        );
+        assert_eq!(
+            page2,
+            [
+                ("b".to_string(), Some(99_700)),
+                ("a".to_string(), Some(99_900))
+            ]
+        );
+    }
+
+    #[test]
+    fn running_balance_is_per_account_and_absent_for_all_accounts() {
+        let (_d, db, a) = setup();
+        let b = account(&db, "Bills", 5_000, "2026-11-01");
+        add(&db, &tx(a, "2026-11-02", -100, "in a")).unwrap();
+        add(&db, &tx(b, "2026-11-02", -700, "in b")).unwrap();
+        assert_eq!(
+            running(
+                &db,
+                TransactionQuery {
+                    account_id: Some(b),
+                    ..Default::default()
+                }
+            ),
+            [("in b".to_string(), Some(4_300))]
+        );
+        assert!(
+            running(&db, TransactionQuery::default())
+                .iter()
+                .all(|(_, r)| r.is_none())
+        );
+    }
+
+    #[test]
+    fn ledger_row_json_is_flat() {
+        let (_d, db, a) = setup();
+        add(&db, &tx(a, "2026-11-02", -100, "x")).unwrap();
+        let row = &list_with_running_balance(
+            &db,
+            &TransactionQuery {
+                account_id: Some(a),
+                ..Default::default()
+            },
+        )
+        .unwrap()[0];
+        let v = serde_json::to_value(row).unwrap();
+        assert_eq!(v["payee"], "x");
+        assert_eq!(v["amount"], -100);
+        assert_eq!(v["running_balance"], 99_900);
+        assert!(v.get("transaction").is_none(), "flattened");
     }
 
     #[test]
