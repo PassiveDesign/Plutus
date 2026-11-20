@@ -9,7 +9,9 @@ publish = false
 [dependencies]
 # SQLCipher (encrypted SQLite) compiled from source, with OpenSSL vendored so
 # Windows and Linux builds need no system crypto libraries.
-rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"] }
+rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl", "chrono"] }
+# Calendar dates only (no clock/timezone features needed).
+chrono = { version = "0.4", default-features = false, features = ["std", "serde"] }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 

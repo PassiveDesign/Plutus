@@ -14,6 +14,12 @@ Rewritten at the end of every session. Read after AGENTS.md.
   2026-11-20** (setup validation, Ctrl+L, wrong/right unlock, change password,
   restart). UI reported snappy. Release published (no longer draft).
   **M0 complete.**
+- **M1 accounts core done:** migration 0002 `accounts` (schema v2; v1 → v2
+  upgrade tested), `plutus-core::accounts` (`AccountKind` with
+  `is_liability`/`is_valued`/`can_be_offset_target`, `AccountInput`,
+  `Account`, `get`/`list`/`create`/`update`/`set_archived`/`offsets_for`),
+  validation + normalisation (BSB → 6 digits, account no. digits only),
+  offset-link rules, case-insensitive unique active names. 53 core tests.
 - **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
   icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
   version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
@@ -54,10 +60,20 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M1 — Accounts: schema + Rust model** (migration 0002 `accounts`:
-   id, name, kind [transaction/savings/credit_card/loan/cash/other],
-   opening_balance_cents, opening_date, bsb, account_number, archived_at,
-   created_at; `plutus-core::accounts` repository with tests).
+**M1 — Accounts commands + TS API** (shell + UI plumbing, no page yet):
+- `src-tauri/src/lib.rs`: commands `list_accounts(include_archived)`,
+  `create_account(input)`, `update_account(id, input)`,
+  `set_account_archived(id, archived)`; each takes the vault lock and calls
+  `vault.db()?` then `plutus_core::accounts::*`. Fast queries — no
+  `spawn_blocking` needed. `CommandError` gains an optional `field`
+  (from `DbError::Invalid/Conflict`) so the UI can attach errors to inputs.
+- `src/lib/api.ts`: `Account`, `AccountInput`, `AccountKind` types (money as
+  cents, dates as `YYYY-MM-DD` strings), wrappers, and a
+  `fieldErrors(e): Record<string,string>` helper.
+- `src/lib/accounts.ts`: kind labels + groups (Banking: transaction/offset/
+  savings/cash; Credit & loans; Investments & super; Other), `isLiability`.
+- Tests: Rust test for CommandError field mapping; Vitest for helpers.
+Then the Accounts page.
 
 ## Open questions for the owner
 

@@ -50,3 +50,21 @@ Short, dated entries. Future sessions follow these without re-deciding.
   `npm test`. jsdom doesn't blur disabled inputs or do layout, so browser-only
   behaviour needs either a simulated step in the test or a check in the mocked
   browser preview.
+- **2026-11-20 — Account kinds:** transaction, offset, savings, credit_card,
+  home_loan, loan, super, shares, investment, property, cash, other. Owner's
+  accounts are currently all offset accounts. Super/shares/investment/property
+  are *valued* kinds (market value via valuations, not bank transactions).
+- **2026-11-20 — Offset accounts may link to a home_loan/loan**
+  (`offset_for`), several per loan; the link is optional so offsets work
+  without the loan being tracked. A loan with linked offsets can't change to a
+  non-loan kind.
+- **2026-11-20 — Signed balances:** assets positive, liabilities negative
+  (net worth = plain sum). The UI may accept "amount owed" as positive for
+  liabilities and negate it, but storage is signed.
+- **2026-11-20 — Accounts are archived, not deleted.** Active names are unique
+  case-insensitively; archiving frees the name.
+- **2026-11-20 — Dates use `chrono::NaiveDate`** (no clock features), stored
+  as `YYYY-MM-DD` TEXT, serialised as the same string.
+- **2026-11-20 — Validation errors** are `DbError::Invalid { field, message }`
+  (code `invalid`) and `Conflict { field, message }` (code `conflict`); the UI
+  shows `message` on the matching form field.

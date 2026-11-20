@@ -10,8 +10,10 @@ use rusqlite::Connection;
 use super::DbError;
 
 /// Ordered list of `(version, sql)`. Version N must be at index N-1.
-pub(crate) const MIGRATIONS: &[(u32, &str)] =
-    &[(1, include_str!("../../migrations/0001_meta.sql"))];
+pub(crate) const MIGRATIONS: &[(u32, &str)] = &[
+    (1, include_str!("../../migrations/0001_meta.sql")),
+    (2, include_str!("../../migrations/0002_accounts.sql")),
+];
 
 /// Schema version a fully migrated database reports.
 pub const LATEST_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -66,6 +68,29 @@ mod tests {
             )
             .unwrap();
         assert_eq!(n, 1, "seed rows must not be duplicated by re-running");
+    }
+
+    #[test]
+    fn upgrades_a_v1_database_keeping_its_data() {
+        // A database created by Plutus v0.1.0 (schema v1).
+        let mut conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(MIGRATIONS[0].1).unwrap();
+        conn.pragma_update(None, "user_version", 1).unwrap();
+        conn.execute("INSERT INTO meta (key, value) VALUES ('probe', 'v1')", [])
+            .unwrap();
+
+        migrate(&mut conn).unwrap();
+        assert_eq!(current_version(&conn).unwrap(), LATEST_VERSION);
+        let v: String = conn
+            .query_row("SELECT value FROM meta WHERE key = 'probe'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(v, "v1");
+        let n: i64 = conn
+            .query_row("SELECT count(*) FROM accounts", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
     }
 
     #[test]

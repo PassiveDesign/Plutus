@@ -28,6 +28,20 @@ pub enum DbError {
     PasswordTooShort { min: usize },
     #[error("the vault is locked")]
     Locked,
+    /// User input failed validation; `message` is shown next to `field`.
+    #[error("{message}")]
+    Invalid {
+        field: &'static str,
+        message: String,
+    },
+    /// Input clashes with existing data (e.g. duplicate name).
+    #[error("{message}")]
+    Conflict {
+        field: &'static str,
+        message: String,
+    },
+    #[error("{what} {id} not found")]
+    RecordNotFound { what: &'static str, id: i64 },
     #[error("a database already exists at {0}")]
     AlreadyExists(PathBuf),
     #[error("no database found at {0}")]
@@ -56,6 +70,9 @@ impl DbError {
             DbError::EmptyPassword => "empty_password",
             DbError::PasswordTooShort { .. } => "password_too_short",
             DbError::Locked => "locked",
+            DbError::Invalid { .. } => "invalid",
+            DbError::Conflict { .. } => "conflict",
+            DbError::RecordNotFound { .. } => "record_not_found",
             DbError::AlreadyExists(_) => "already_exists",
             DbError::NotFound(_) => "not_found",
             DbError::NewerSchema { .. } => "newer_schema",
@@ -164,7 +181,6 @@ impl Database {
     }
 
     /// Underlying connection, for repository modules inside this crate.
-    #[allow(dead_code)] // first users arrive with the accounts module (M1)
     pub(crate) fn conn(&self) -> &Connection {
         &self.conn
     }

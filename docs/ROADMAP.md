@@ -19,9 +19,10 @@ Feature scope is a first draft — edit freely.
 
 ## M1 — Accounts
 
-- [ ] Schema + Rust model: accounts (name, type, opening balance, archived, optional BSB/account number for import matching)
-- [ ] Commands: create / list / update / archive account, with tests
-- [ ] Accounts page: list with balances, add/edit form
+- [x] Schema + Rust model + repository: accounts (12 kinds incl. offset, home loan, super, shares, investment, property), offset → loan links, BSB/account number, opening balance/date, archive; validation; tests
+- [ ] Tauri commands (`list_accounts`, `create_account`, `update_account`, `set_account_archived`) + typed TS API + field-error display (`invalid`/`conflict` codes → TextField errors)
+- [ ] Accounts page: grouped table (Banking / Credit & loans / Investments & super / Other) with balances, add/edit modal, archive/restore, show-archived toggle
+- [ ] Offset linking in the UI: pick a loan for an offset account; loan row shows its offsets and the net (loan + offsets) owed
 
 ## M2 — Transactions
 
@@ -51,6 +52,11 @@ Feature scope is a first draft — edit freely.
 
 - [ ] Monthly budget per category: schema + commands
 - [ ] Budget page: budgeted vs spent, remaining, rollover option
+
+## M5b — Valuations (super, shares, investments, property)
+
+- [ ] Valuation history per valued account (date + market value); balance = latest valuation
+- [ ] Quick "update value" action from the Accounts page
 
 ## M6 — Reports & dashboard
 
