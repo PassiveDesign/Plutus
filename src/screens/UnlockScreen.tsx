@@ -1,4 +1,5 @@
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Button, TextField } from "../components";
 import { api, errorMessage } from "../lib/api";
 
 type Props = { onUnlocked: () => void };
@@ -22,9 +23,15 @@ export function UnlockScreen({ onUnlocked }: Props) {
       setError(errorMessage(err));
       setPassword("");
       setBusy(false);
-      input.current?.focus();
     }
   }
+
+  // After a failed attempt, return focus to the field once it is re-enabled.
+  // (Focusing inside the catch block is too early: the input is still
+  // disabled until React commits, and browsers ignore focus on disabled inputs.)
+  useEffect(() => {
+    if (error && !busy) input.current?.focus();
+  }, [error, busy]);
 
   return (
     <main className="auth">
@@ -32,24 +39,21 @@ export function UnlockScreen({ onUnlocked }: Props) {
         <h1>Plutus</h1>
         <p className="muted">Enter your password to unlock your data.</p>
 
-        <label>
-          Password
-          <input
-            ref={input}
-            type="password"
-            autoFocus
-            autoComplete="current-password"
-            value={password}
-            disabled={busy}
-            onChange={(e) => setPassword(e.currentTarget.value)}
-          />
-        </label>
+        <TextField
+          ref={input}
+          label="Password"
+          type="password"
+          autoFocus
+          autoComplete="current-password"
+          value={password}
+          disabled={busy}
+          onChange={(e) => setPassword(e.currentTarget.value)}
+          error={error}
+        />
 
-        {error && <p className="error">{error}</p>}
-
-        <button type="submit" disabled={!password || busy}>
-          {busy ? "Unlocking…" : "Unlock"}
-        </button>
+        <Button type="submit" disabled={!password} busy={busy} busyLabel="Unlocking…">
+          Unlock
+        </Button>
       </form>
     </main>
   );

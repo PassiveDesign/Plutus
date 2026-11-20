@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { Button, TextField } from "../components";
 import { api, errorMessage } from "../lib/api";
 
 type Props = { minChars: number; onCreated: () => void };
@@ -30,6 +31,8 @@ export function SetupScreen({ minChars, onCreated }: Props) {
     }
   }
 
+  const lengthHint = `At least ${minChars} characters${password ? ` (${length}/${minChars})` : ""}. A long passphrase is best.`;
+
   return (
     <main className="auth">
       <form className="card" onSubmit={submit}>
@@ -39,31 +42,25 @@ export function SetupScreen({ minChars, onCreated }: Props) {
           required every time Plutus opens.
         </p>
 
-        <label>
-          Password
-          <input
-            type="password"
-            autoFocus
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.currentTarget.value)}
-          />
-        </label>
-        <p className={`hint ${password && tooShort ? "bad" : ""}`}>
-          At least {minChars} characters{password ? ` (${length}/${minChars})` : ""}. A long
-          passphrase is best.
-        </p>
+        <TextField
+          label="Password"
+          type="password"
+          autoFocus
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.currentTarget.value)}
+          hint={lengthHint}
+          error={password && tooShort ? lengthHint : null}
+        />
 
-        <label>
-          Confirm password
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={confirm}
-            onChange={(e) => setConfirm(e.currentTarget.value)}
-          />
-        </label>
-        {mismatch && <p className="hint bad">Passwords don't match.</p>}
+        <TextField
+          label="Confirm password"
+          type="password"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.currentTarget.value)}
+          error={mismatch ? "Passwords don't match." : null}
+        />
 
         <div className="warning">
           <strong>There is no password recovery.</strong> If you forget it, your data cannot be
@@ -79,11 +76,15 @@ export function SetupScreen({ minChars, onCreated }: Props) {
           I understand my password cannot be recovered.
         </label>
 
-        {error && <p className="error">{error}</p>}
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
 
-        <button type="submit" disabled={!canSubmit}>
-          {busy ? "Creating encrypted database…" : "Create password"}
-        </button>
+        <Button type="submit" disabled={!canSubmit} busy={busy} busyLabel="Creating encrypted database…">
+          Create password
+        </Button>
       </form>
     </main>
   );

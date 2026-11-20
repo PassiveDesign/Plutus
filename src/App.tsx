@@ -3,6 +3,7 @@ import { api, AppInfo, errorMessage, VaultStatus } from "./lib/api";
 import { SetupScreen } from "./screens/SetupScreen";
 import { UnlockScreen } from "./screens/UnlockScreen";
 import { AppShell } from "./shell/AppShell";
+import { useToast } from "./components";
 import "./App.css";
 
 function App() {
@@ -19,10 +20,16 @@ function App() {
     refresh();
   }, [refresh]);
 
+  const toast = useToast();
+
   const lock = useCallback(async () => {
-    await api.lockVault();
+    try {
+      await api.lockVault();
+    } catch (e) {
+      toast.error(`Couldn't lock: ${errorMessage(e)}`);
+    }
     refresh();
-  }, [refresh]);
+  }, [refresh, toast]);
 
   if (fatal) {
     return (

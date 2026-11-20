@@ -53,6 +53,10 @@ Work can be cut off at any moment. Leave the repo resumable at all times.
   directly. Commands return `Result<T, String>`-style errors the UI can show.
 - **Tests:** business logic in Rust gets unit tests. Each roadmap task should
   leave `cargo test` and `npm run build` passing.
+- **UI building blocks live in `src/components/`** (`Button`, `TextField`,
+  `Modal`, `DataTable` with `money` columns, `useToast`). Use them rather than
+  raw elements so behaviour (a11y, focus, money formatting) stays consistent.
+  Show money with `formatCents` or a `DataTable` money column, nowhere else.
 - **Never commit real financial data**, sample exports, or `.env` files. Test
   fixtures must be synthetic.
 
@@ -62,6 +66,7 @@ Work can be cut off at any moment. Leave the repo resumable at all times.
 npm install
 npm run tauri dev                 # run the app (needs Linux GTK/WebKit libs, see README)
 npm run build                     # type-check + bundle UI
+npm test                          # UI unit tests (Vitest)
 cd src-tauri && cargo fmt --all && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace
 cd src-tauri && cargo test -p plutus-core   # works on this host today (no GTK needed)
 ```

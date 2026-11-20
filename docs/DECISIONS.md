@@ -42,3 +42,11 @@ Short, dated entries. Future sessions follow these without re-deciding.
 - **2026-11-20 — No router library yet.** Page switching is a `PageId` state in
   `src/shell/AppShell.tsx`; pages are registered in `src/shell/pages.ts`. Add
   `react-router` only if deep links/history become necessary.
+- **2026-11-20 — Money formatting split:** Rust parses and does all arithmetic;
+  the UI only formats cents for display with `src/lib/money.ts`
+  (`formatCents`), whose tests mirror the Rust `Display` tests. Change both
+  together.
+- **2026-11-20 — UI tests: Vitest + Testing Library (jsdom)**, run in CI via
+  `npm test`. jsdom doesn't blur disabled inputs or do layout, so browser-only
+  behaviour needs either a simulated step in the test or a check in the mocked
+  browser preview.

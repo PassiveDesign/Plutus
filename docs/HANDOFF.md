@@ -14,6 +14,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `src/pages/<Name>Page.tsx` and switch on `current` in `AppShell`.
   Light + dark themes via CSS variables in `App.css`. Checked in the mocked
   browser preview (nav, active state, dark mode, Ctrl+L, Lock button).
+- **Shared UI basics done:** `src/components/` (Button variants + busy,
+  TextField with hint/error/a11y, Modal with focus trap/Escape/backdrop,
+  DataTable with money columns + empty state + keyboard rows, Toast provider
+  — errors sticky, others 4s). `src/lib/money.ts` `formatCents`/`plainCents`.
+  Vitest set up (39 tests: components, money, password screens with mocked
+  API); CI runs `npm test`. Setup/Unlock screens now use the components;
+  fixed unlock-field refocus after a wrong password (verified in Chromium).
 - **Money type done** (`plutus-core::money::Money`): strict parser (`$1,234.56`,
   `(12.30)`, `-$5`, rejects `1.234`/bad grouping), Display `$1,234.56`,
   plain `1234.56`, checked arithmetic capped at ±2^53−1 cents, serde as
@@ -34,17 +41,19 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M0 — Shared UI basics** (keep it small; build only what M1 Accounts needs):
-- `src/lib/money.ts`: `formatCents(cents)` matching Rust `Money` Display
-  (`$1,234.56`, `-$12.30`) — or expose formatting from Rust; pick one and
-  record it in DECISIONS. Add a TS test runner (Vitest) for it.
-- Reusable components in `src/components/`: `Button` (primary/secondary/
-  danger), `TextField` (label, hint, error), `Modal`/dialog, `DataTable`
-  (header, rows, empty state, right-aligned money column), `Toast` for errors.
-- Move shared CSS into a structured stylesheet if `App.css` gets unwieldy.
-Verify in the mocked browser preview, then push.
+**M0 — Change password** (Settings page):
+- Core: `Vault::change_password(current, new)` — require unlocked, verify
+  `current` (open a second connection with it, or compare via a fresh
+  `Database::open`), `check_new_password(new)`, then `Database::change_password`
+  (rekey). Tests: wrong current rejected, short new rejected, old pw stops
+  working, new works after lock/unlock.
+- Shell: `change_password(current, new)` command via `spawn_blocking`.
+- UI: `src/pages/SettingsPage.tsx` replacing the placeholder for `settings`
+  (switch in `AppShell`): form with current / new / confirm (TextField),
+  no-recovery reminder, success toast. Screen tests with mocked API.
 
-After that: change-password (Settings page), then cut v0.1.0.
+Then: cut **v0.1.0** (bump versions in 3 files, tag, watch release workflow,
+download installers and test on Windows + Linux).
 
 ## Open questions for the owner
 
