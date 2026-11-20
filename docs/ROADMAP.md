@@ -14,7 +14,7 @@ Feature scope is a first draft — edit freely.
 - [x] Money type (`i64` cents, AUD only) with parse/format helpers (`$1,234.56`, negatives) and tests
 - [x] UI shell: sidebar navigation (Dashboard, Accounts, Transactions, Budgets, Reports, Settings) with empty pages
 - [x] Shared UI basics: layout, theme (light/dark), form + table components, error toast
-- [ ] Change-password in Settings (needs the UI shell; verify current password first) (SQLCipher rekey)
+- [x] Change-password in Settings (needs the UI shell; verify current password first) (SQLCipher rekey)
 - [ ] Cut `v0.1.0` release; install on Windows and Linux to prove the pipeline
 
 ## M1 — Accounts

@@ -38,4 +38,7 @@ export const api = {
   createVault: (password: string) => invoke<void>("create_vault", { password }),
   unlockVault: (password: string) => invoke<void>("unlock_vault", { password }),
   lockVault: () => invoke<void>("lock_vault"),
+  // Tauri maps camelCase JS args to snake_case Rust params.
+  changePassword: (current: string, newPassword: string) =>
+    invoke<void>("change_password", { current, newPassword }),
 };

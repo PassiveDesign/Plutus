@@ -14,6 +14,12 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `src/pages/<Name>Page.tsx` and switch on `current` in `AppShell`.
   Light + dark themes via CSS variables in `App.css`. Checked in the mocked
   browser preview (nav, active state, dark mode, Ctrl+L, Lock button).
+- **Change password done:** `Vault::change_password(current, new)` verifies
+  the current password on a separate connection (`Database::verify_password`),
+  enforces policy, then rekeys. Command `change_password` (JS arg
+  `newPassword`). `src/pages/SettingsPage.tsx` is the first real page
+  (AppShell switches on `current === "settings"`). 40 core + 43 UI tests;
+  flow checked in mocked browser preview.
 - **Shared UI basics done:** `src/components/` (Button variants + busy,
   TextField with hint/error/a11y, Modal with focus trap/Escape/backdrop,
   DataTable with money columns + empty state + keyboard rows, Toast provider
@@ -41,19 +47,21 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M0 — Change password** (Settings page):
-- Core: `Vault::change_password(current, new)` — require unlocked, verify
-  `current` (open a second connection with it, or compare via a fresh
-  `Database::open`), `check_new_password(new)`, then `Database::change_password`
-  (rekey). Tests: wrong current rejected, short new rejected, old pw stops
-  working, new works after lock/unlock.
-- Shell: `change_password(current, new)` command via `spawn_blocking`.
-- UI: `src/pages/SettingsPage.tsx` replacing the placeholder for `settings`
-  (switch in `AppShell`): form with current / new / confirm (TextField),
-  no-recovery reminder, success toast. Screen tests with mocked API.
+**M0 — Cut v0.1.0** (first real installers):
+1. Version is already `0.1.0` in `package.json`, `src-tauri/Cargo.toml`,
+   `src-tauri/tauri.conf.json` — confirm, no bump needed for the first tag.
+2. `git tag v0.1.0 && git push origin v0.1.0`; watch the **Release** workflow
+   (`gh run list --workflow Release`). It has never run — expect to fix
+   something (rpm tooling, bundle targets, NSIS/MSI on Windows).
+3. Check the draft release has: `.exe` + `.msi` (Windows), `.AppImage`,
+   `.deb`, `.rpm` (Linux).
+4. Owner installs on Windows and Linux and runs the smoke test: first-run
+   setup → lock → unlock (wrong then right) → change password → restart app →
+   unlock with new password. This is the **first time the real desktop app
+   runs** — everything so far was CI-compiled or mock-previewed.
+5. Fix whatever the smoke test finds, then publish/keep the draft.
 
-Then: cut **v0.1.0** (bump versions in 3 files, tag, watch release workflow,
-download installers and test on Windows + Linux).
+Then M1 — Accounts.
 
 ## Open questions for the owner
 

@@ -54,7 +54,7 @@ function App() {
     return <UnlockScreen onUnlocked={refresh} />;
   }
 
-  return <AppShell version={info.version} onLock={lock} />;
+  return <AppShell version={info.version} minPasswordChars={info.min_password_chars} onLock={lock} />;
 }
 
 export default App;

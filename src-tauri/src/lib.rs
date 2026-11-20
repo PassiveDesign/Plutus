@@ -86,6 +86,21 @@ async fn unlock_vault(state: State<'_, AppState>, password: String) -> CmdResult
     Ok(())
 }
 
+/// Re-encrypt the database under `new_password` after re-checking `current`.
+#[tauri::command]
+async fn change_password(
+    state: State<'_, AppState>,
+    current: String,
+    new_password: String,
+) -> CmdResult<()> {
+    let vault = Arc::clone(&state.vault);
+    tauri::async_runtime::spawn_blocking(move || {
+        guard(&vault).change_password(&current, &new_password)
+    })
+    .await??;
+    Ok(())
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -109,7 +124,8 @@ pub fn run() {
             vault_status,
             create_vault,
             unlock_vault,
-            lock_vault
+            lock_vault,
+            change_password
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");

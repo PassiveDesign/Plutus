@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
+import { SettingsPage } from "../pages/SettingsPage";
 import { pageById, PageId } from "./pages";
 import { Sidebar } from "./Sidebar";
 
-type Props = { version: string; onLock: () => void };
+type Props = { version: string; minPasswordChars: number; onLock: () => void };
 
 /** Main window once the vault is unlocked: sidebar + current page. */
-export function AppShell({ version, onLock }: Props) {
+export function AppShell({ version, minPasswordChars, onLock }: Props) {
   const [current, setCurrent] = useState<PageId>("dashboard");
   const page = pageById(current);
 
@@ -31,7 +32,11 @@ export function AppShell({ version, onLock }: Props) {
         </header>
         <section className="page-body">
           {/* Real pages replace the placeholder here as roadmap tasks land. */}
-          <PlaceholderPage page={page} />
+          {current === "settings" ? (
+            <SettingsPage minChars={minPasswordChars} />
+          ) : (
+            <PlaceholderPage page={page} />
+          )}
         </section>
       </main>
     </div>
