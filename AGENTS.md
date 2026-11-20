@@ -36,8 +36,8 @@ Work can be cut off at any moment. Leave the repo resumable at all times.
 
 ## Conventions
 
-- **Money is integer minor units** (`i64` cents) everywhere. Never floats.
-  Format only at the UI edge. Currency code stored alongside.
+- **Money is integer minor units** (`i64` cents) everywhere. Never floats. AUD only.
+  Format only at the UI edge.
 - **Dates:** store ISO-8601 (`YYYY-MM-DD` for transaction dates, UTC RFC 3339
   for timestamps).
 - **DB schema changes only via numbered migrations** in `src-tauri/migrations/`.

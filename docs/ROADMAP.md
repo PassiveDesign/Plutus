@@ -9,15 +9,17 @@ Feature scope is a first draft — edit freely.
 - [x] Repo, Tauri 2 + React/TS scaffold, CI + release workflows
 - [x] Planning docs (AGENTS, ROADMAP, HANDOFF, DECISIONS)
 - [ ] Confirm first CI run green on Windows + Linux
-- [ ] SQLite layer: open DB in app-data dir, migration runner, first migration (`meta` table), unit tests on an in-memory DB
-- [ ] Money type (`i64` minor units + currency) with parse/format helpers and tests
+- [ ] Encrypted SQLite layer: `rusqlite` with bundled SQLCipher, open DB in app-data dir with a key derived from the password, migration runner, first migration (`meta` table), unit tests (wrong password rejected, migrations idempotent)
+- [ ] Password flow: first-run "create password" screen (with no-recovery warning), unlock screen on every launch, lock on close; DB stays closed until unlocked
+- [ ] Change-password in Settings (SQLCipher rekey)
+- [ ] Money type (`i64` cents, AUD only) with parse/format helpers (`$1,234.56`, negatives) and tests
 - [ ] UI shell: sidebar navigation (Dashboard, Accounts, Transactions, Budgets, Reports, Settings) with empty pages
 - [ ] Shared UI basics: layout, theme (light/dark), form + table components, error toast
 - [ ] Cut `v0.1.0` release; install on Windows and Linux to prove the pipeline
 
 ## M1 — Accounts
 
-- [ ] Schema + Rust model: accounts (name, type, currency, opening balance, archived)
+- [ ] Schema + Rust model: accounts (name, type, opening balance, archived, optional BSB/account number for import matching)
 - [ ] Commands: create / list / update / archive account, with tests
 - [ ] Accounts page: list with balances, add/edit form
 
@@ -35,12 +37,15 @@ Feature scope is a first draft — edit freely.
 - [ ] Assign/bulk-assign categories in the transactions table
 - [ ] Auto-categorisation rules (payee contains / amount matches → category)
 
-## M4 — Import
+## M4 — Import (Bank of Melbourne first)
 
-- [ ] CSV import with column mapping + preview
-- [ ] OFX/QFX import
-- [ ] QIF import
-- [ ] Duplicate detection on import
+- [ ] Get a Bank of Melbourne CSV header row + date/amount format from the owner (no real transactions) and write synthetic fixtures
+- [ ] Bank of Melbourne CSV importer (built-in preset) with preview before commit
+- [ ] Duplicate detection on import (date + amount + description hash; overlapping exports are expected)
+- [ ] Generic CSV import with column mapping, saved as reusable presets
+- [ ] OFX/QFX and QIF import (only if the bank's export menu offers them)
+- [ ] Optional: PDF statement import (for history beyond the online-banking export window)
+- [ ] Open banking (CDR): revisit only if a way to receive data locally without a cloud intermediary becomes available — see DECISIONS
 
 ## M5 — Budgets
 
@@ -57,7 +62,7 @@ Feature scope is a first draft — edit freely.
 
 - [ ] Backup / restore the database file from Settings
 - [ ] Export transactions to CSV
-- [ ] Optional database encryption (SQLCipher) with password unlock — decide first
+- [ ] Auto-lock after inactivity (optional)
 
 ## M8 — v1.0
 

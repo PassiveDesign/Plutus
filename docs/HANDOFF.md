@@ -16,13 +16,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 1. Confirm CI green: `gh run list --workflow CI --limit 3`. If red, fix before
    anything else (likely suspects: clippy warnings, Windows-specific build issue).
-2. Then: **M0 — SQLite layer** (see ROADMAP).
+2. Then: **M0 — Encrypted SQLite layer** (see ROADMAP).
 
 ## Open questions for the owner
 
-- Default currency (assumed AUD) and whether multi-currency is needed.
-- Which banks/export formats to support first for import (CSV/OFX/QIF).
-- Whether the database should be encrypted with a password (M7).
+- Bank of Melbourne CSV format: need the header row and one example of the
+  date/amount format (made-up values are fine) before the M4 importer.
+- Does the export menu also offer OFX/QFX/QIF?
 
 ## Environment notes
 

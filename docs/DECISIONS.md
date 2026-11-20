@@ -10,7 +10,22 @@ Short, dated entries. Future sessions follow these without re-deciding.
   installed manually from draft GitHub Releases.
 - **2026-11-20 — Local-first storage in SQLite** in the OS app-data dir.
   No cloud sync.
-- **2026-11-20 — Money as integer minor units (`i64`)**, never floating point.
+- **2026-11-20 — Money as integer cents (`i64`)**, never floating point.
+- **2026-11-20 — AUD only.** No multi-currency; no currency column needed
+  beyond a fixed constant.
+- **2026-11-20 — Password required at launch; whole database encrypted with
+  SQLCipher.** The key is derived from the password. There is no recovery: a
+  forgotten password means the data is unreadable (backups are encrypted too).
+  Built into the DB layer from the start (M0), not bolted on later.
+- **2026-11-20 — Import target: Bank of Melbourne** (Westpac group, same
+  platform as St.George/BankSA). CSV export is the primary path. Personal
+  online-banking exports are limited to a recent window (~3 months / 500
+  transactions reported), so the owner should import regularly and duplicate
+  detection must handle overlapping files.
+- **2026-11-20 — Open banking (CDR) deferred.** CDR data can only flow to
+  ACCC-accredited recipients (or their representatives); there is no
+  machine-readable direct-to-consumer API. The only route is a paid cloud
+  aggregator, which conflicts with local-first. Revisit if that changes.
 - **2026-11-20 — Windows installers unsigned** for now (SmartScreen warning
   accepted; personal use).
 - **2026-11-20 — Work is planned around usage limits:** small roadmap tasks,
