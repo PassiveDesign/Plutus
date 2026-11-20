@@ -100,6 +100,8 @@ describe("AccountsPage", () => {
     expect(within(banking).getByRole("heading")).toHaveTextContent("Banking$14,845.67");
     expect(within(banking).getByText("193-879 · 45678901")).toBeInTheDocument();
     expect(within(banking).getByText("Bank of Melbourne · Offsets Home Loan")).toBeInTheDocument();
+    // Loan shows its offsets and what interest is charged on.
+    expect(screen.getByText("2 offsets · Net owed $435,154.33")).toBeInTheDocument();
     const credit = screen.getByRole("region", { name: /Credit & loans/ });
     expect(within(credit).getByText("-$450,000.00", { selector: "td" })).toHaveClass("negative");
     expect(screen.getByText("-$435,154.33")).toHaveClass("negative"); // net total
@@ -163,13 +165,13 @@ describe("AccountsPage", () => {
   });
 
   it("errors without a matching field go to a toast", async () => {
-    m.createAccount.mockRejectedValue({ code: "invalid", field: "offset_for", message: "The linked loan is archived." });
+    m.createAccount.mockRejectedValue({ code: "io", message: "i/o error: disk full" });
     const user = renderPage();
     await user.click(await screen.findByRole("button", { name: "Add your first account" }));
     const dialog = screen.getByRole("dialog");
     await user.type(within(dialog).getByLabelText("Name"), "Offset");
     await user.click(within(dialog).getByRole("button", { name: "Add account" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("The linked loan is archived.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("I/o error: disk full.");
   });
 
   it("editing keeps an offset link; changing type away from offset drops it", async () => {
@@ -216,6 +218,62 @@ describe("AccountsPage", () => {
     await user.click(row);
     await user.click(screen.getByRole("button", { name: "Restore" }));
     expect(m.setAccountArchived).toHaveBeenLastCalledWith(1, false);
+  });
+
+  it("offset picker lists active loans (plus a current archived link) and saves the choice", async () => {
+    store = [
+      acct(1, { name: "Home Loan", kind: "home_loan", opening_balance: -100 }),
+      acct(2, { name: "Old Loan", kind: "loan", archived_at: "2026-11-20T00:00:00Z" }),
+      acct(3, { name: "Card", kind: "credit_card" }),
+      acct(4, { name: "Linked to old", offset_for: 2 }),
+    ];
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Add account" }));
+    let dialog = screen.getByRole("dialog");
+    const picker = within(dialog).getByLabelText("Offsets loan");
+    expect([...picker.querySelectorAll("option")].map((o) => o.textContent)).toEqual([
+      "Not linked",
+      "Home Loan",
+    ]);
+    await user.type(within(dialog).getByLabelText("Name"), "Everyday Offset");
+    await user.selectOptions(picker, "1");
+    await user.click(within(dialog).getByRole("button", { name: "Add account" }));
+    expect(m.createAccount).toHaveBeenLastCalledWith(expect.objectContaining({ offset_for: 1 }));
+    expect(await screen.findByText(/1 offset · Net owed/)).toBeInTheDocument();
+
+    // Existing link to an archived loan stays selectable and selected.
+    await user.click(screen.getByText("Linked to old"));
+    dialog = screen.getByRole("dialog");
+    const p2 = within(dialog).getByLabelText("Offsets loan") as HTMLSelectElement;
+    expect(p2.value).toBe("2");
+    expect(within(p2).getByText("Old Loan (archived)")).toBeInTheDocument();
+    await user.selectOptions(p2, "");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(m.updateAccount).toHaveBeenLastCalledWith(4, expect.objectContaining({ offset_for: null }));
+  });
+
+  it("picker only shows for offset accounts and hints when there are no loans", async () => {
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Add your first account" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText("Offsets loan")).toHaveAccessibleDescription(
+      "Add your home loan as an account to link this offset to it.",
+    );
+    await user.selectOptions(within(dialog).getByLabelText("Type"), "savings");
+    expect(within(dialog).queryByLabelText("Offsets loan")).toBeNull();
+  });
+
+  it("offset_for validation errors show on the picker", async () => {
+    store = [acct(1, { name: "Home Loan", kind: "home_loan" })];
+    m.createAccount.mockRejectedValue({ code: "invalid", field: "offset_for", message: "The linked loan is archived." });
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Add account" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Name"), "Offset");
+    await user.selectOptions(within(dialog).getByLabelText("Offsets loan"), "1");
+    await user.click(within(dialog).getByRole("button", { name: "Add account" }));
+    expect(await within(dialog).findByText("The linked loan is archived.")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Offsets loan")).toHaveAttribute("aria-invalid", "true");
   });
 
   it("load failure shows a retry", async () => {

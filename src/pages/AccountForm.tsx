@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { Button, Modal, SelectField, TextField, useToast } from "../components";
-import { ACCOUNT_GROUPS, isLiability, KIND_LABELS } from "../lib/accounts";
+import { ACCOUNT_GROUPS, isLiability, KIND_LABELS, offsetTargets } from "../lib/accounts";
 import { Account, AccountInput, AccountKind, api, errorMessage, splitError } from "../lib/api";
 import { plainCents } from "../lib/money";
 
@@ -9,6 +9,8 @@ export type SavedVerb = "added" | "updated" | "archived" | "restored";
 type Props = {
   /** `null` = adding a new account. */
   account: Account | null;
+  /** Every account (archived included), for the offset-loan picker. */
+  accounts: Account[];
   onClose: () => void;
   onSaved: (account: Account, verb: SavedVerb) => void;
 };
@@ -22,6 +24,7 @@ const FIELDS = new Set([
   "account_number",
   "opening_balance",
   "opening_date",
+  "offset_for",
   "notes",
 ]);
 
@@ -38,7 +41,7 @@ function toDisplayCents(kind: AccountKind, cents: number): number {
   return isLiability(kind) && cents !== 0 ? -cents : cents;
 }
 
-export function AccountForm({ account, onClose, onSaved }: Props) {
+export function AccountForm({ account, accounts, onClose, onSaved }: Props) {
   const toast = useToast();
   const [name, setName] = useState(account?.name ?? "");
   const [kind, setKind] = useState<AccountKind>(account?.kind ?? "offset");
@@ -50,11 +53,15 @@ export function AccountForm({ account, onClose, onSaved }: Props) {
   );
   const [openingDate, setOpeningDate] = useState(account?.opening_date ?? todayIso());
   const [notes, setNotes] = useState(account?.notes ?? "");
+  const [offsetFor, setOffsetFor] = useState<number | null>(account?.offset_for ?? null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   const liability = isLiability(kind);
   const isNew = account === null;
+  const loans = offsetTargets(accounts, account?.offset_for ?? null).filter(
+    (a) => a.id !== account?.id,
+  );
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -80,9 +87,8 @@ export function AccountForm({ account, onClose, onSaved }: Props) {
       account_number: blank(accountNumber),
       opening_balance: cents,
       opening_date: openingDate,
-      // The offset-loan picker comes later; keep an existing link while the
-      // account stays an offset, drop it otherwise.
-      offset_for: kind === "offset" ? (account?.offset_for ?? null) : null,
+      // Only offset accounts link to a loan; switching type drops the link.
+      offset_for: kind === "offset" ? offsetFor : null,
       notes: blank(notes),
     };
 
@@ -163,6 +169,30 @@ export function AccountForm({ account, onClose, onSaved }: Props) {
             </optgroup>
           ))}
         </SelectField>
+        {kind === "offset" && (
+          <SelectField
+            label="Offsets loan"
+            value={offsetFor === null ? "" : String(offsetFor)}
+            onChange={(e) => {
+              const v = e.currentTarget.value;
+              setOffsetFor(v === "" ? null : Number(v));
+            }}
+            error={errors.offset_for}
+            hint={
+              loans.length === 0
+                ? "Add your home loan as an account to link this offset to it."
+                : "The balance here reduces the interest charged on this loan."
+            }
+          >
+            <option value="">Not linked</option>
+            {loans.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+                {l.archived_at ? " (archived)" : ""}
+              </option>
+            ))}
+          </SelectField>
+        )}
         <TextField
           label="Institution"
           value={institution}

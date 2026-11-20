@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Wallet } from "lucide-react";
 import { Button, DataTable, useToast } from "../components";
 import type { Column } from "../components";
-import { formatBsb, groupAccounts, KIND_LABELS, totalCents } from "../lib/accounts";
+import {
+  canBeOffsetTarget,
+  formatBsb,
+  groupAccounts,
+  KIND_LABELS,
+  loanSummary,
+  totalCents,
+} from "../lib/accounts";
 import { Account, api, errorMessage } from "../lib/api";
 import { formatCents } from "../lib/money";
 import { AccountForm, SavedVerb } from "./AccountForm";
@@ -45,6 +52,17 @@ export function AccountsPage() {
     if (a.institution) parts.push(a.institution);
     if (a.offset_for !== null) {
       parts.push(`Offsets ${byId.get(a.offset_for)?.name ?? "a loan"}`);
+    }
+    if (canBeOffsetTarget(a.kind) && all) {
+      const s = loanSummary(a, all);
+      if (s.offsets.length > 0) {
+        const n = `${s.offsets.length} offset${s.offsets.length === 1 ? "" : "s"}`;
+        parts.push(
+          s.netCents < 0
+            ? `${n} · Net owed ${formatCents(-s.netCents)}`
+            : `${n} · Fully offset`,
+        );
+      }
     }
     return parts.length ? parts.join(" · ") : null;
   };
@@ -145,6 +163,7 @@ export function AccountsPage() {
       {editing !== null && (
         <AccountForm
           account={editing === "new" ? null : editing}
+          accounts={all}
           onClose={() => setEditing(null)}
           onSaved={onSaved}
         />

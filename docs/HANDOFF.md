@@ -35,6 +35,10 @@ Rewritten at the end of every session. Read after AGENTS.md.
   restore; keeps existing `offset_for`). `SelectField` component,
   `DataTable.rowClassName`. 10 page tests; checked in mocked preview
   (fixed a grid overflow in the form).
+- **Offset linking UI done:** "Offsets loan" picker in `AccountForm` (active
+  loans + current archived link; hint when no loans), loan rows show
+  "N offsets · Net owed $X" / "Fully offset" via `loanSummary()`;
+  `offsetTargets()` helper. 72 UI tests. **M1 complete.**
 - **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
   icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
   version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
@@ -75,18 +79,15 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M1 — Offset linking in the UI** (last M1 task):
-- `AccountForm`: when type is `offset`, show a "Offsets loan" `SelectField`
-  listing active `home_loan`/`loan` accounts (+ "Not linked"); pass the list
-  in from `AccountsPage`. Keep the current link even if that loan is archived
-  (show it labelled "(archived)").
-- Loan rows: subtitle "N offsets" and an extra line or tooltip with the
-  **net owed** = loan balance + linked active offset balances (this is what
-  interest is charged on). Compute in TS from the loaded list (pure helper
-  in `src/lib/accounts.ts` + tests).
-- Tests + mocked preview. Then cut **v0.2.0** for the owner to try entering
-  real accounts (bump 3 version files, tag, watch Release, smoke test incl.
-  v0.1.0 → v0.2.0 database upgrade).
+**Cut v0.2.0** (accounts release):
+1. Bump `0.1.0` → `0.2.0` in `package.json`, `src-tauri/Cargo.toml`,
+   `src-tauri/tauri.conf.json` (and let `Cargo.lock` update); commit, CI green.
+2. `git tag -a v0.2.0 && git push origin v0.2.0`; watch Release; check 5 assets.
+3. Owner smoke test: install over v0.1.0 → unlock with existing password
+   (DB upgrades v1 → v2 silently) → add accounts incl. home loan + offsets →
+   restart → data still there. Then publish the draft and tick M1.5.
+
+Then **M2 — Transactions: schema + model** (migration 0003).
 
 ## Open questions for the owner
 

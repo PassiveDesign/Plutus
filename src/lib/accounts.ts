@@ -61,3 +61,27 @@ export function groupAccounts(accounts: Account[]): { group: AccountGroup; accou
 export function totalCents(accounts: Account[]): number {
   return accounts.reduce((sum, a) => sum + a.opening_balance, 0);
 }
+
+/** Loans an offset account may link to: active home loans / loans, plus the
+ *  currently linked account even if it has since been archived. */
+export function offsetTargets(all: Account[], currentLinkId: number | null = null): Account[] {
+  return all.filter(
+    (a) => canBeOffsetTarget(a.kind) && (a.archived_at === null || a.id === currentLinkId),
+  );
+}
+
+export type LoanSummary = {
+  /** Active offset accounts linked to the loan. */
+  offsets: Account[];
+  /** Sum of those offsets' balances, in cents. */
+  offsetCents: number;
+  /** Loan balance + offsets (cents). Negative = still owed; >= 0 = fully offset. */
+  netCents: number;
+};
+
+/** What the loan's interest is charged on: its balance less linked offsets. */
+export function loanSummary(loan: Account, all: Account[]): LoanSummary {
+  const offsets = all.filter((a) => a.offset_for === loan.id && a.archived_at === null);
+  const offsetCents = totalCents(offsets);
+  return { offsets, offsetCents, netCents: loan.opening_balance + offsetCents };
+}
