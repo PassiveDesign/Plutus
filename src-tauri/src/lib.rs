@@ -347,4 +347,56 @@ mod tests {
             assert_eq!(listed.len(), 1);
         });
     }
+
+    #[test]
+    fn transaction_commands_round_trip_and_balances_serialise_by_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let acct = with_db(&vault, |db| accounts::create(db, &input("Everyday")))
+                .await
+                .unwrap();
+            let tx: TransactionInput = serde_json::from_value(serde_json::json!({
+                "account_id": acct.id, "date": "2026-11-15", "amount": -845, "payee": "Coffee"
+            }))
+            .unwrap();
+            let added = with_db(&vault, move |db| transactions::add(db, &tx))
+                .await
+                .unwrap();
+
+            let n = with_db(&vault, |db| {
+                transactions::count(db, &TransactionQuery::default())
+            })
+            .await
+            .unwrap();
+            assert_eq!(n, 1);
+
+            let balances = with_db(&vault, accounts::balances).await.unwrap();
+            let json = serde_json::to_value(&balances).unwrap();
+            assert_eq!(
+                json[acct.id.to_string()],
+                12345 - 845,
+                "keys are id strings, values cents"
+            );
+
+            let bad: TransactionInput = serde_json::from_value(serde_json::json!({
+                "account_id": acct.id, "date": "2026-11-15", "amount": 1
+            }))
+            .unwrap();
+            let e = with_db(&vault, move |db| transactions::add(db, &bad))
+                .await
+                .unwrap_err();
+            assert_eq!((e.code, e.field), ("invalid", Some("payee")));
+
+            let id = added.id;
+            with_db(&vault, move |db| transactions::delete(db, id))
+                .await
+                .unwrap();
+            let e = with_db(&vault, move |db| transactions::delete(db, id))
+                .await
+                .unwrap_err();
+            assert_eq!(e.code, "record_not_found");
+        });
+    }
 }
