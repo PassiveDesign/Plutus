@@ -48,6 +48,20 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `TransactionQuery`; `add`/`get`/`update`/`delete`/`list`/`count`),
   `accounts::balance`/`balances` (opening + txns on/after opening date).
   66 core tests incl. upgrade from every older schema.
+- **Transaction commands + real balances done:** shell commands
+  `account_balances`, `list_transactions`, `count_transactions`,
+  `add/update/delete_transaction` (all via `with_db`; shell test covers
+  round trip, balances JSON keyed by id string, field error, not found).
+  TS types/wrappers in `src/lib/api.ts` (`Balances`, `Transaction*`).
+  `accounts.ts` helpers take an optional `balanceOf` (`balanceLookup()`
+  falls back to opening balance); AccountsPage shows current balances in
+  rows, group totals, net total and loan net owed; the form still edits the
+  opening balance. 75 UI tests.
+- **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
+  Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
+  `App.css`, docs. Note its commit `9713101` accidentally also contains this
+  task's changes (swept in from the shared checkout) — identical code, so
+  the merge should resolve to main's version.
 - **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
   icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
   version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
@@ -88,19 +102,20 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M2 — Transaction commands + TS API, and real balances on Accounts:**
-- Shell commands via `with_db`: `list_transactions(query)`,
-  `count_transactions(query)`, `add_transaction(input)`,
-  `update_transaction(id, input)`, `delete_transaction(id)`,
-  `account_balances()` → `{ [id]: cents }` (HashMap<i64, Money> serialises
-  with string keys — map to `Record<string, number>` in TS). Shell tests via
-  `with_db` like the account ones.
-- TS: `Transaction`, `TransactionInput`, `TransactionQuery` types +
-  wrappers in `src/lib/api.ts`.
-- AccountsPage: load `accountBalances()` alongside `listAccounts(true)`;
-  Balance column, group totals, net total and `loanSummary` use the real
-  balance (fallback to opening balance if missing). Update helpers to take a
-  balance lookup; update tests.
+**M2 — Transactions page** (`src/pages/TransactionsPage.tsx`, switch in
+`AppShell`). Work in a worktree (see AGENTS.md).
+- Filters: account (`SelectField`, "All accounts"), from/to dates.
+- `DataTable`: Date, Payee (+ raw description muted), Account (name; hide
+  when filtered to one), Amount (money column), Cleared (checkbox toggle
+  calling `updateTransaction`). Newest first.
+- Paging: 100/page with `countTransactions`; Prev/Next + "41–60 of 312".
+- Add/Edit modal: account, date (default today), amount entered as
+  money-in/money-out (two radio buttons + positive amount → signed cents via
+  `parseMoney`), payee, description, memo, cleared. Delete with confirm.
+  Field errors via `splitError`.
+- Empty state; archived accounts excluded from the add picker.
+- Tests with mocked api + mocked browser preview. If PR #1 has merged by
+  then, follow its Passive UI rules (tokens, no raw colours).
 
 ## Open questions for the owner
 

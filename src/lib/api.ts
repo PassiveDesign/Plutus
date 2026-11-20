@@ -79,6 +79,37 @@ export type Account = AccountInput & {
   created_at: string;
 };
 
+/** Current balance per account id (cents). Keys are id strings (JSON). */
+export type Balances = Record<string, number>;
+
+// ---- Transactions (mirror plutus_core::transactions) ----
+
+/** Amount is signed cents from the account's view: in positive, out negative. */
+export type TransactionInput = {
+  account_id: number;
+  date: string;
+  amount: number;
+  payee: string | null;
+  description: string | null;
+  memo: string | null;
+  cleared: boolean;
+};
+
+export type Transaction = TransactionInput & {
+  id: number;
+  created_at: string;
+  updated_at: string | null;
+};
+
+/** Dates inclusive (YYYY-MM-DD). Newest first; page size defaults to 200, max 1000. */
+export type TransactionQuery = {
+  account_id?: number | null;
+  from?: string | null;
+  to?: string | null;
+  limit?: number | null;
+  offset?: number | null;
+};
+
 export const api = {
   appInfo: () => invoke<AppInfo>("app_info"),
   vaultStatus: () => invoke<VaultStatus>("vault_status"),
@@ -99,4 +130,14 @@ export const api = {
     invoke<Account>("update_account", { id, input }),
   setAccountArchived: (id: number, archived: boolean) =>
     invoke<Account>("set_account_archived", { id, archived }),
+  accountBalances: () => invoke<Balances>("account_balances"),
+
+  listTransactions: (query: TransactionQuery = {}) =>
+    invoke<Transaction[]>("list_transactions", { query }),
+  countTransactions: (query: TransactionQuery = {}) =>
+    invoke<number>("count_transactions", { query }),
+  addTransaction: (input: TransactionInput) => invoke<Transaction>("add_transaction", { input }),
+  updateTransaction: (id: number, input: TransactionInput) =>
+    invoke<Transaction>("update_transaction", { id, input }),
+  deleteTransaction: (id: number) => invoke<void>("delete_transaction", { id }),
 };

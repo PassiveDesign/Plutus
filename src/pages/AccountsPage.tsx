@@ -3,6 +3,7 @@ import { Plus, Wallet } from "lucide-react";
 import { Button, DataTable, useToast } from "../components";
 import type { Column } from "../components";
 import {
+  balanceLookup,
   canBeOffsetTarget,
   formatBsb,
   groupAccounts,
@@ -10,7 +11,7 @@ import {
   loanSummary,
   totalCents,
 } from "../lib/accounts";
-import { Account, api, errorMessage } from "../lib/api";
+import { Account, api, Balances, errorMessage } from "../lib/api";
 import { formatCents } from "../lib/money";
 import { AccountForm, SavedVerb } from "./AccountForm";
 
@@ -19,13 +20,16 @@ export function AccountsPage() {
   // All accounts (archived included) so offset links can always be named;
   // the archive filter is applied here.
   const [all, setAll] = useState<Account[] | null>(null);
+  const [balances, setBalances] = useState<Balances | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [editing, setEditing] = useState<Account | "new" | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setAll(await api.listAccounts(true));
+      const [accounts, bals] = await Promise.all([api.listAccounts(true), api.accountBalances()]);
+      setBalances(bals);
+      setAll(accounts);
       setLoadError(null);
     } catch (e) {
       setLoadError(errorMessage(e));
@@ -36,6 +40,8 @@ export function AccountsPage() {
     void load();
   }, [load]);
 
+  // Current balance (opening + transactions); falls back to opening balance.
+  const balanceOf = useMemo(() => balanceLookup(balances), [balances]);
   const byId = useMemo(() => new Map((all ?? []).map((a) => [a.id, a])), [all]);
   const active = useMemo(() => (all ?? []).filter((a) => a.archived_at === null), [all]);
   const visible = showArchived ? (all ?? []) : active;
@@ -54,7 +60,7 @@ export function AccountsPage() {
       parts.push(`Offsets ${byId.get(a.offset_for)?.name ?? "a loan"}`);
     }
     if (canBeOffsetTarget(a.kind) && all) {
-      const s = loanSummary(a, all);
+      const s = loanSummary(a, all, balanceOf);
       if (s.offsets.length > 0) {
         const n = `${s.offsets.length} offset${s.offsets.length === 1 ? "" : "s"}`;
         parts.push(
@@ -92,7 +98,7 @@ export function AccountsPage() {
         </span>
       ),
     },
-    { key: "balance", header: "Balance", width: "160px", money: (a) => a.opening_balance },
+    { key: "balance", header: "Balance", width: "160px", money: balanceOf },
   ];
 
   if (loadError) {
@@ -113,8 +119,8 @@ export function AccountsPage() {
       <div className="toolbar">
         <div className="net-total">
           <span className="muted">Net total</span>
-          <strong className={totalCents(active) < 0 ? "negative" : undefined}>
-            {formatCents(totalCents(active))}
+          <strong className={totalCents(active, balanceOf) < 0 ? "negative" : undefined}>
+            {formatCents(totalCents(active, balanceOf))}
           </strong>
         </div>
         <span className="spacer" />
@@ -144,8 +150,8 @@ export function AccountsPage() {
           <section key={group.id} className="account-group" aria-labelledby={`grp-${group.id}`}>
             <h2 id={`grp-${group.id}`} className="group-heading">
               <span>{group.label}</span>
-              <span className={`money${totalCents(accounts.filter((a) => !a.archived_at)) < 0 ? " negative" : ""}`}>
-                {formatCents(totalCents(accounts.filter((a) => !a.archived_at)))}
+              <span className={`money${totalCents(accounts.filter((a) => !a.archived_at), balanceOf) < 0 ? " negative" : ""}`}>
+                {formatCents(totalCents(accounts.filter((a) => !a.archived_at), balanceOf))}
               </span>
             </h2>
             <DataTable

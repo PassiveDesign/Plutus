@@ -1,6 +1,6 @@
 // Account presentation helpers. Classification must match
 // `AccountKind::is_liability` / `is_valued` in src-tauri/core/src/accounts.rs.
-import type { Account, AccountKind } from "./api";
+import type { Account, AccountKind, Balances } from "./api";
 
 export const KIND_LABELS: Record<AccountKind, string> = {
   transaction: "Transaction",
@@ -57,9 +57,20 @@ export function groupAccounts(accounts: Account[]): { group: AccountGroup; accou
   })).filter((g) => g.accounts.length > 0);
 }
 
+/** How to read an account's balance. Defaults to its opening balance. */
+export type BalanceOf = (a: Account) => number;
+
+export const openingBalanceOf: BalanceOf = (a) => a.opening_balance;
+
+/** Current balance from the backend's `Balances`, falling back to the
+ *  opening balance if an account is missing (e.g. just created). */
+export function balanceLookup(balances: Balances | null | undefined): BalanceOf {
+  return (a) => balances?.[String(a.id)] ?? a.opening_balance;
+}
+
 /** Sum of balances in cents (integers stay exact up to 2^53). */
-export function totalCents(accounts: Account[]): number {
-  return accounts.reduce((sum, a) => sum + a.opening_balance, 0);
+export function totalCents(accounts: Account[], balanceOf: BalanceOf = openingBalanceOf): number {
+  return accounts.reduce((sum, a) => sum + balanceOf(a), 0);
 }
 
 /** Loans an offset account may link to: active home loans / loans, plus the
@@ -80,8 +91,12 @@ export type LoanSummary = {
 };
 
 /** What the loan's interest is charged on: its balance less linked offsets. */
-export function loanSummary(loan: Account, all: Account[]): LoanSummary {
+export function loanSummary(
+  loan: Account,
+  all: Account[],
+  balanceOf: BalanceOf = openingBalanceOf,
+): LoanSummary {
   const offsets = all.filter((a) => a.offset_for === loan.id && a.archived_at === null);
-  const offsetCents = totalCents(offsets);
-  return { offsets, offsetCents, netCents: loan.opening_balance + offsetCents };
+  const offsetCents = totalCents(offsets, balanceOf);
+  return { offsets, offsetCents, netCents: balanceOf(loan) + offsetCents };
 }

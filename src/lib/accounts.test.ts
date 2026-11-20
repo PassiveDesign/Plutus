@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Account, AccountKind } from "./api";
 import {
   ACCOUNT_GROUPS,
+  balanceLookup,
   canBeOffsetTarget,
   formatBsb,
   groupAccounts,
@@ -110,5 +111,18 @@ describe("loanSummary", () => {
   it("no offsets: net equals the loan balance", () => {
     const loan = acct(1, "loan", -100);
     expect(loanSummary(loan, [loan])).toEqual({ offsets: [], offsetCents: 0, netCents: -100 });
+  });
+});
+
+describe("balanceLookup", () => {
+  it("uses backend balances, falling back to the opening balance", () => {
+    const a = acct(1, "offset", 500);
+    const b = acct(2, "home_loan", -10_000);
+    const balanceOf = balanceLookup({ "1": 1_250 });
+    expect(balanceOf(a)).toBe(1_250);
+    expect(balanceOf(b)).toBe(-10_000);
+    expect(balanceLookup(null)(a)).toBe(500);
+    expect(totalCents([a, b], balanceOf)).toBe(-8_750);
+    expect(loanSummary(b, [b, { ...a, offset_for: 2 }], balanceOf).netCents).toBe(-8_750);
   });
 });

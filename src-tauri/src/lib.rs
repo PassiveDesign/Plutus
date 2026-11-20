@@ -1,10 +1,11 @@
 //! Tauri shell: app state and commands only. Logic lives in `plutus-core`.
 
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use plutus_core::{
-    Account, AccountInput, Database, DbError, MIN_PASSWORD_CHARS, Money, MoneyError, Vault,
-    accounts,
+    Account, AccountInput, Database, DbError, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction,
+    TransactionInput, TransactionQuery, Vault, accounts, transactions,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -182,6 +183,50 @@ async fn set_account_archived(
     .await
 }
 
+/// Current balance of every account (opening + transactions on/after the
+/// opening date), keyed by account id. JSON keys arrive as strings.
+#[tauri::command]
+async fn account_balances(state: State<'_, AppState>) -> CmdResult<HashMap<i64, Money>> {
+    with_db(&state.vault, accounts::balances).await
+}
+
+/// One page of transactions, newest first.
+#[tauri::command]
+async fn list_transactions(
+    state: State<'_, AppState>,
+    query: TransactionQuery,
+) -> CmdResult<Vec<Transaction>> {
+    with_db(&state.vault, move |db| transactions::list(db, &query)).await
+}
+
+/// Total matching `query` (ignores paging), for page counts.
+#[tauri::command]
+async fn count_transactions(state: State<'_, AppState>, query: TransactionQuery) -> CmdResult<u64> {
+    with_db(&state.vault, move |db| transactions::count(db, &query)).await
+}
+
+#[tauri::command]
+async fn add_transaction(
+    state: State<'_, AppState>,
+    input: TransactionInput,
+) -> CmdResult<Transaction> {
+    with_db(&state.vault, move |db| transactions::add(db, &input)).await
+}
+
+#[tauri::command]
+async fn update_transaction(
+    state: State<'_, AppState>,
+    id: i64,
+    input: TransactionInput,
+) -> CmdResult<Transaction> {
+    with_db(&state.vault, move |db| transactions::update(db, id, &input)).await
+}
+
+#[tauri::command]
+async fn delete_transaction(state: State<'_, AppState>, id: i64) -> CmdResult<()> {
+    with_db(&state.vault, move |db| transactions::delete(db, id)).await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -211,7 +256,13 @@ pub fn run() {
             list_accounts,
             create_account,
             update_account,
-            set_account_archived
+            set_account_archived,
+            account_balances,
+            list_transactions,
+            count_transactions,
+            add_transaction,
+            update_transaction,
+            delete_transaction
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");

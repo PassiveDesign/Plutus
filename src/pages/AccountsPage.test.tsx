@@ -16,6 +16,7 @@ vi.mock("../lib/api", async (orig) => {
       updateAccount: vi.fn(),
       setAccountArchived: vi.fn(),
       parseMoney: vi.fn(),
+      accountBalances: vi.fn(),
     },
   };
 });
@@ -55,6 +56,7 @@ beforeEach(() => {
   store = [];
   m.listAccounts.mockImplementation(async () => store.map((a) => ({ ...a })));
   m.parseMoney.mockImplementation(fakeParse);
+  m.accountBalances.mockResolvedValue({}); // no transactions: opening balances apply
   m.createAccount.mockImplementation(async (input: AccountInput) => {
     const a = acct(store.length + 1, { ...input });
     store.push(a);
@@ -274,6 +276,33 @@ describe("AccountsPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add account" }));
     expect(await within(dialog).findByText("The linked loan is archived.")).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Offsets loan")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("shows current balances (opening + transactions) everywhere, not opening balances", async () => {
+    store = [
+      acct(1, { name: "Home Loan", kind: "home_loan", opening_balance: -45_000_000 }),
+      acct(2, { name: "Everyday Offset", opening_balance: 100_000, offset_for: 1 }),
+    ];
+    m.accountBalances.mockResolvedValue({ "1": -44_900_000, "2": 250_000 });
+    renderPage();
+    const banking = await screen.findByRole("region", { name: /Banking/ });
+    expect(within(banking).getByText("$2,500.00", { selector: "td" })).toBeInTheDocument();
+    expect(within(banking).getByRole("heading")).toHaveTextContent("Banking$2,500.00");
+    expect(screen.getByText("-$449,000.00", { selector: "td" })).toBeInTheDocument();
+    expect(screen.getByText("1 offset · Net owed $446,500.00")).toBeInTheDocument();
+    expect(screen.getByText("-$446,500.00")).toBeInTheDocument(); // net total
+    // The edit form still edits the *opening* balance.
+    await userEvent.setup().click(screen.getByText("Everyday Offset"));
+    expect(screen.getByLabelText("Opening balance")).toHaveValue("1000.00");
+  });
+
+  it("reloads balances after saving", async () => {
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Add your first account" }));
+    await user.type(screen.getByLabelText("Name"), "Bills Account");
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add account" }));
+    await screen.findByText("Bills Account");
+    expect(m.accountBalances).toHaveBeenCalledTimes(2);
   });
 
   it("load failure shows a retry", async () => {

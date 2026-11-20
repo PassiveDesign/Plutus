@@ -38,6 +38,16 @@ Work can be cut off at any moment. Leave the repo resumable at all times.
 6. **Decisions** that future sessions must respect go in `docs/DECISIONS.md`
    (one short entry each). Don't re-litigate decided items.
 
+## Shared checkout warning
+
+More than one agent session may work on this repo at once, and they have
+shared `~/projects/Plutus`. A session switching branches there carries other
+sessions' uncommitted edits along (that is how transaction-command work ended
+up inside the design PR). **Do your work in your own git worktree**
+(`git worktree add -b <branch> ~/projects/Plutus-wt-<task> origin/main`),
+never switch branches in the shared checkout, commit often, and remove the
+worktree when done (`git worktree remove`).
+
 ## Conventions
 
 - **Money is integer minor units** (`i64` cents) everywhere. Never floats. AUD only.
