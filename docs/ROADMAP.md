@@ -8,7 +8,7 @@ Feature scope is a first draft — edit freely.
 
 - [x] Repo, Tauri 2 + React/TS scaffold, CI + release workflows
 - [x] Planning docs (AGENTS, ROADMAP, HANDOFF, DECISIONS)
-- [ ] Confirm first CI run green on Windows + Linux
+- [x] Confirm first CI run green on Windows + Linux
 - [ ] Encrypted SQLite layer: `rusqlite` with bundled SQLCipher, open DB in app-data dir with a key derived from the password, migration runner, first migration (`meta` table), unit tests (wrong password rejected, migrations idempotent)
 - [ ] Password flow: first-run "create password" screen (with no-recovery warning), unlock screen on every launch, lock on close; DB stays closed until unlocked
 - [ ] Change-password in Settings (SQLCipher rekey)
