@@ -4,6 +4,7 @@
 //! positive, liabilities negative — so net worth is a plain sum.
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use chrono::{Datelike, NaiveDate};
 use rusqlite::{OptionalExtension, Row, params};
@@ -444,6 +445,47 @@ pub fn update(db: &Database, id: i64, input: &AccountInput) -> Result<Account, D
         ],
     )?;
     get(db, id)
+}
+
+/// Current balance of every account: opening balance plus transactions dated
+/// on or after the account's opening date. Earlier transactions (e.g.
+/// imported history) are already reflected in the opening balance and are
+/// not counted again. See docs/DECISIONS.md.
+pub fn balances(db: &Database) -> Result<HashMap<i64, Money>, DbError> {
+    balances_where(db, None)
+}
+
+/// Current balance of one account (same rule as [`balances`]).
+pub fn balance(db: &Database, id: i64) -> Result<Money, DbError> {
+    balances_where(db, Some(id))?
+        .remove(&id)
+        .ok_or_else(|| not_found(id))
+}
+
+fn balances_where(db: &Database, id: Option<i64>) -> Result<HashMap<i64, Money>, DbError> {
+    let mut stmt = db.conn().prepare(
+        "SELECT a.id, a.opening_balance_cents, COALESCE(SUM(t.amount_cents), 0) \
+         FROM accounts a \
+         LEFT JOIN transactions t ON t.account_id = a.id AND t.date >= a.opening_date \
+         WHERE ?1 IS NULL OR a.id = ?1 \
+         GROUP BY a.id",
+    )?;
+    let rows = stmt.query_map([id], |r| {
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, i64>(1)?,
+            r.get::<_, i64>(2)?,
+        ))
+    })?;
+    let mut out = HashMap::new();
+    for row in rows {
+        let (id, opening, movement) = row?;
+        let total = Money::from_cents(opening)
+            .checked_add(Money::from_cents(movement))
+            .ok_or_else(|| invalid("amount", "Balance is too large to calculate."))?;
+        out.insert(id, total);
+    }
+    Ok(out)
 }
 
 /// Archive (hide) or restore an account. History is kept either way.

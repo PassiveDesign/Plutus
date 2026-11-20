@@ -41,7 +41,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `offsetTargets()` helper. 72 UI tests. **M1 complete.**
 - **v0.2.0 published.** Owner smoke test passed: v0.1.0 → v0.2.0 install,
   v1 → v2 database upgrade on unlock, real accounts entered (home loan +
-  linked offsets), restart persistence.
+  linked offsets), restart persistence. **Owner has real data from here on
+  — every migration must upgrade cleanly; never edit a shipped migration.**
+- **M2 transactions core done:** migration 0003 (schema v3),
+  `plutus-core::transactions` (`TransactionInput`, `Transaction`,
+  `TransactionQuery`; `add`/`get`/`update`/`delete`/`list`/`count`),
+  `accounts::balance`/`balances` (opening + txns on/after opening date).
+  66 core tests incl. upgrade from every older schema.
 - **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
   icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
   version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
@@ -82,18 +88,19 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M2 — Transactions: schema + model** (migration 0003 `transactions`):
-id, account_id (FK, RESTRICT), date (YYYY-MM-DD), amount_cents (signed:
-money in positive, out negative), payee, description (raw bank text, kept
-for import matching), memo, category_id (nullable; categories come in M3),
-cleared (bool), transfer_id (nullable; pairs transfers, M2 later task),
-import_hash (nullable; duplicate detection, M4), created_at. Indexes on
-(account_id, date), (import_hash). `plutus-core::transactions` with
-add/update/delete/list (by account, date range, paging) + validation and
-tests. Accounts can't be archived? — no, archiving keeps history; but
-deleting a transaction's account is already blocked (archive only).
-Also: `accounts::balance(db, id)` = opening + sum(transactions dated on/after
-opening_date) — decide and record whether pre-opening transactions count.
+**M2 — Transaction commands + TS API, and real balances on Accounts:**
+- Shell commands via `with_db`: `list_transactions(query)`,
+  `count_transactions(query)`, `add_transaction(input)`,
+  `update_transaction(id, input)`, `delete_transaction(id)`,
+  `account_balances()` → `{ [id]: cents }` (HashMap<i64, Money> serialises
+  with string keys — map to `Record<string, number>` in TS). Shell tests via
+  `with_db` like the account ones.
+- TS: `Transaction`, `TransactionInput`, `TransactionQuery` types +
+  wrappers in `src/lib/api.ts`.
+- AccountsPage: load `accountBalances()` alongside `listAccounts(true)`;
+  Balance column, group totals, net total and `loanSummary` use the real
+  balance (fallback to opening balance if missing). Update helpers to take a
+  balance lookup; update tests.
 
 ## Open questions for the owner
 

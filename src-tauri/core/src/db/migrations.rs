@@ -13,6 +13,7 @@ use super::DbError;
 pub(crate) const MIGRATIONS: &[(u32, &str)] = &[
     (1, include_str!("../../migrations/0001_meta.sql")),
     (2, include_str!("../../migrations/0002_accounts.sql")),
+    (3, include_str!("../../migrations/0003_transactions.sql")),
 ];
 
 /// Schema version a fully migrated database reports.
@@ -68,6 +69,32 @@ mod tests {
             )
             .unwrap();
         assert_eq!(n, 1, "seed rows must not be duplicated by re-running");
+    }
+
+    #[test]
+    fn upgrades_from_every_older_version() {
+        // Databases left at each earlier schema by previous releases.
+        for from in 1..LATEST_VERSION {
+            let mut conn = Connection::open_in_memory().unwrap();
+            for (_, sql) in &MIGRATIONS[..from as usize] {
+                conn.execute_batch(sql).unwrap();
+            }
+            conn.pragma_update(None, "user_version", from).unwrap();
+            conn.execute("INSERT INTO meta (key, value) VALUES ('probe', 'kept')", [])
+                .unwrap();
+            migrate(&mut conn).unwrap_or_else(|e| panic!("upgrade from v{from}: {e}"));
+            assert_eq!(
+                current_version(&conn).unwrap(),
+                LATEST_VERSION,
+                "from v{from}"
+            );
+            let v: String = conn
+                .query_row("SELECT value FROM meta WHERE key = 'probe'", [], |r| {
+                    r.get(0)
+                })
+                .unwrap();
+            assert_eq!(v, "kept", "from v{from}");
+        }
     }
 
     #[test]

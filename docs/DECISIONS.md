@@ -73,3 +73,18 @@ Short, dated entries. Future sessions follow these without re-deciding.
   Errors come back as code `invalid_amount` with a friendly message.
 - **2026-11-20 — Accounts page loads all accounts (archived included)** and
   filters client-side, so offset links to archived loans can still be named.
+- **2026-11-20 — Balance = opening balance + transactions dated on/after the
+  opening date** (owner's choice). Older transactions (imported history) are
+  stored and listed but already reflected in the opening balance, so they're
+  not counted again. Moving the opening date earlier brings them in.
+- **2026-11-20 — Transaction amounts are signed from the account's view:**
+  money in positive, out negative. At least one of payee / raw description is
+  required. Zero amounts allowed.
+- **2026-11-20 — Archived accounts accept no new transactions** (or
+  transactions moved into them), but their existing history stays editable.
+- **2026-11-20 — Columns for later features are added by migrations** with
+  `ALTER TABLE ... ADD COLUMN` (nullable, FK allowed): `category_id` (M3),
+  `transfer_id` (M2 transfers), `import_hash` (M4). Not pre-created.
+- **2026-11-20 — Migration tests upgrade from every older schema version**
+  (`upgrades_from_every_older_version`), since the owner's real database
+  exists from v0.2.0 onward.

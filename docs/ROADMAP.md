@@ -30,11 +30,11 @@ Feature scope is a first draft — edit freely.
 
 ## M2 — Transactions
 
-- [ ] Schema + model: transactions (account, date, payee, amount, memo, category, cleared)
-- [ ] Commands: add / edit / delete / list (paged, by account, by date range), with tests
-- [ ] Running balance computation, with tests
-- [ ] Transactions page: table, filters, add/edit dialog
-- [ ] Transfers between accounts (paired transactions)
+- [x] Schema + model: transactions (account, date, signed amount, payee, raw description, memo, cleared); add/update/delete/list (filter by account + date range, paged) + count; account balances (opening + transactions from opening date); tests
+- [ ] Commands + typed TS API (`list_transactions`, `count_transactions`, `add/update/delete_transaction`, `account_balances`); Accounts page shows real balances
+- [ ] Transactions page: table (date, payee/description, account, amount, cleared), account + date filters, paging, add/edit/delete dialog
+- [ ] Running balance per account in the transactions table (needs account filter)
+- [ ] Transfers between accounts (paired transactions; migration adds `transfer_id`)
 
 ## M3 — Categories & rules
 

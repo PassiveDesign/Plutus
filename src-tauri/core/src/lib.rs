@@ -6,9 +6,11 @@
 pub mod accounts;
 pub mod db;
 pub mod money;
+pub mod transactions;
 pub mod vault;
 
 pub use accounts::{Account, AccountInput, AccountKind};
 pub use db::{Database, DbError};
 pub use money::{Money, MoneyError};
+pub use transactions::{Transaction, TransactionInput, TransactionQuery};
 pub use vault::{MIN_PASSWORD_CHARS, Vault, VaultStatus};
