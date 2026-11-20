@@ -19,9 +19,19 @@ type Props<T> = {
   empty?: ReactNode;
   onRowClick?: (row: T) => void;
   caption?: string;
+  /** Extra class per row, e.g. to mute archived items. */
+  rowClassName?: (row: T) => string | undefined;
 };
 
-export function DataTable<T>({ columns, rows, rowKey, empty, onRowClick, caption }: Props<T>) {
+export function DataTable<T>({
+  columns,
+  rows,
+  rowKey,
+  empty,
+  onRowClick,
+  caption,
+  rowClassName,
+}: Props<T>) {
   if (rows.length === 0) {
     return <div className="table-empty">{empty ?? "Nothing here yet."}</div>;
   }
@@ -47,7 +57,10 @@ export function DataTable<T>({ columns, rows, rowKey, empty, onRowClick, caption
           {rows.map((row) => (
             <tr
               key={rowKey(row)}
-              className={onRowClick ? "clickable" : undefined}
+              className={
+                [onRowClick ? "clickable" : null, rowClassName?.(row)].filter(Boolean).join(" ") ||
+                undefined
+              }
               onClick={onRowClick ? () => onRowClick(row) : undefined}
               tabIndex={onRowClick ? 0 : undefined}
               onKeyDown={

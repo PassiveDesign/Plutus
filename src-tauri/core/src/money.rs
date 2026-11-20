@@ -32,6 +32,18 @@ pub enum MoneyError {
     OutOfRange(String),
 }
 
+impl MoneyError {
+    /// Short message suitable for showing under a form field.
+    pub fn friendly(&self) -> &'static str {
+        match self {
+            MoneyError::Empty => "Enter an amount.",
+            MoneyError::Invalid(_) => "Enter an amount like 1,234.56.",
+            MoneyError::TooManyDecimals(_) => "Amounts can have at most 2 decimal places.",
+            MoneyError::OutOfRange(_) => "That amount is too large.",
+        }
+    }
+}
+
 impl Money {
     pub const ZERO: Money = Money(0);
     /// Largest magnitude allowed, in cents (JavaScript's `Number.MAX_SAFE_INTEGER`).
@@ -405,6 +417,20 @@ mod tests {
         assert!(Money::from_cents(-1) < Money::ZERO);
         assert_eq!(Money::default(), Money::ZERO);
         assert_eq!("$4.20".parse::<Money>(), Ok(Money::from_cents(420)));
+    }
+
+    #[test]
+    fn friendly_messages() {
+        assert_eq!(err("").friendly(), "Enter an amount.");
+        assert_eq!(err("abc").friendly(), "Enter an amount like 1,234.56.");
+        assert_eq!(
+            err("1.234").friendly(),
+            "Amounts can have at most 2 decimal places."
+        );
+        assert_eq!(
+            err("9".repeat(30).as_str()).friendly(),
+            "That amount is too large."
+        );
     }
 
     #[test]

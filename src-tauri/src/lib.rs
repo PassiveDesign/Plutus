@@ -2,7 +2,10 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use plutus_core::{Account, AccountInput, Database, DbError, MIN_PASSWORD_CHARS, Vault, accounts};
+use plutus_core::{
+    Account, AccountInput, Database, DbError, MIN_PASSWORD_CHARS, Money, MoneyError, Vault,
+    accounts,
+};
 use serde::Serialize;
 use tauri::{Manager, State};
 
@@ -31,6 +34,16 @@ impl From<DbError> for CommandError {
             code: e.code(),
             message: e.to_string(),
             field,
+        }
+    }
+}
+
+impl From<MoneyError> for CommandError {
+    fn from(e: MoneyError) -> Self {
+        Self {
+            code: "invalid_amount",
+            message: e.friendly().to_string(),
+            field: None,
         }
     }
 }
@@ -127,6 +140,13 @@ async fn change_password(
     Ok(())
 }
 
+/// Parse a typed amount (`$1,234.56`, `(12.30)`, `-5`) into cents using the
+/// same strict parser as everything else. The UI never parses money itself.
+#[tauri::command]
+fn parse_money(text: String) -> CmdResult<i64> {
+    Ok(Money::parse(&text)?.cents())
+}
+
 /// All accounts in display order (active first).
 #[tauri::command]
 async fn list_accounts(
@@ -187,6 +207,7 @@ pub fn run() {
             unlock_vault,
             lock_vault,
             change_password,
+            parse_money,
             list_accounts,
             create_account,
             update_account,
@@ -229,6 +250,15 @@ mod tests {
         assert_eq!(json["code"], "invalid");
         assert_eq!(json["field"], "bsb");
         assert_eq!(json["message"], "BSB must be 6 digits, e.g. 063-000.");
+    }
+
+    #[test]
+    fn parse_money_uses_the_core_parser() {
+        assert_eq!(parse_money("$1,234.56".into()).unwrap(), 123_456);
+        assert_eq!(parse_money("(12.30)".into()).unwrap(), -1230);
+        let e = parse_money("1.234".into()).unwrap_err();
+        assert_eq!(e.code, "invalid_amount");
+        assert_eq!(e.message, "Amounts can have at most 2 decimal places.");
     }
 
     fn input(name: &str) -> AccountInput {

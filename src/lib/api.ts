@@ -89,6 +89,9 @@ export const api = {
   changePassword: (current: string, newPassword: string) =>
     invoke<void>("change_password", { current, newPassword }),
 
+  /** Strict money parse in Rust; resolves to cents, rejects with `invalid_amount`. */
+  parseMoney: (text: string) => invoke<number>("parse_money", { text }),
+
   listAccounts: (includeArchived = false) =>
     invoke<Account[]>("list_accounts", { includeArchived }),
   createAccount: (input: AccountInput) => invoke<Account>("create_account", { input }),

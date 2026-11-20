@@ -162,6 +162,148 @@ h1 {
   opacity: 0.6;
 }
 
+/* ---- Accounts ---- */
+
+.accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.toolbar .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.net-total {
+  display: flex;
+  flex-direction: column;
+}
+
+.net-total .muted {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.net-total strong {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.negative {
+  color: var(--danger);
+}
+
+.account-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.group-heading {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.group-heading .money {
+  font-variant-numeric: tabular-nums;
+}
+
+.cell-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.cell-title {
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cell-sub {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--muted);
+}
+
+.data-table tr.archived td {
+  opacity: 0.6;
+}
+
+.empty-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.empty-cta p {
+  margin: 0;
+  max-width: 420px;
+}
+
+.page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  color: var(--danger);
+}
+
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.field select {
+  appearance: auto;
+}
+
+.field select option,
+.field select optgroup {
+  background: var(--card-bg);
+  color: inherit;
+}
+
 /* ---- Settings ---- */
 
 .settings {

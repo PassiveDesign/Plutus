@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AccountsPage } from "../pages/AccountsPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { pageById, PageId } from "./pages";
@@ -34,6 +35,8 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
           {/* Real pages replace the placeholder here as roadmap tasks land. */}
           {current === "settings" ? (
             <SettingsPage minChars={minPasswordChars} />
+          ) : current === "accounts" ? (
+            <AccountsPage />
           ) : (
             <PlaceholderPage page={page} />
           )}
