@@ -88,3 +88,21 @@ Short, dated entries. Future sessions follow these without re-deciding.
 - **2026-11-20 — Migration tests upgrade from every older schema version**
   (`upgrades_from_every_older_version`), since the owner's real database
   exists from v0.2.0 onward.
+- **2026-11-21 — The look comes from Passive UI,** the design system shared
+  with PassiveSync, vendored into `src/kit/` by Passive UI's
+  `scripts/vendor.mjs --esm`. Passive UI is its own private repo,
+  https://github.com/PassiveDesign/passive-ui. Don't edit `src/kit/`;
+  change Passive UI and copy it in again. `App.css` holds only Plutus's own
+  layout and uses Passive UI's tokens (`--bg --pane --text --muted --accent
+  --bad …`), never raw colours. Plutus's accent is **gold** (`data-app="plutus"`);
+  warnings are orange and faults red, the same in every PassiveDesign app.
+  Rules in Passive UI's `GUIDE.md`; the main one: colour means attention.
+- **2026-11-21 — Negative amounts are not red.** A debt is not an alarm: they
+  show in plain ink with a minus sign. The `negative` class stays (tests pin
+  it) but carries no colour. Red is for faults (errors, failed imports).
+- **2026-11-21 — Light or dark follows the system** (`src/lib/theme.ts` sets
+  `<html data-mode>`); a preference in Settings can come later.
+- **2026-11-21 — Shell is a top bar with tabs and a status bar** (Passive
+  UI's), not a sidebar: `src/shell/TopBar.tsx`, `StatusBar.tsx`. Pages are
+  still registered in `src/shell/pages.ts`; their icons are no longer shown.
+

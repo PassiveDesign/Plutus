@@ -68,6 +68,13 @@ worktree when done (`git worktree remove`).
   classification) are pinned by a test on *both* sides. Change both together.
 - **Tests:** business logic in Rust gets unit tests. Each roadmap task should
   leave `cargo test` and `npm run build` passing.
+- **The look is Passive UI** (shared with PassiveSync; its own repo,
+  `PassiveDesign/passive-ui`), vendored in `src/kit/` — never edit it there;
+  see `src/kit/README.md` to update it. Style with its tokens in `App.css`
+  (`var(--pane)`, `var(--muted)`, `var(--accent)`, `var(--bad)`, `var(--mono)`
+  …), never raw colours, and follow its `GUIDE.md` (colour means attention;
+  sans for words, mono for figures; hairlines, not cards). Timelines use
+  `timeline` from `src/kit/passive-ui.mjs`.
 - **UI building blocks live in `src/components/`** (`Button`, `TextField`,
   `Modal`, `DataTable` with `money` columns, `useToast`). Use them rather than
   raw elements so behaviour (a11y, focus, money formatting) stays consistent.

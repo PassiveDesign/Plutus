@@ -3,11 +3,12 @@ import { AccountsPage } from "../pages/AccountsPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { pageById, PageId } from "./pages";
-import { Sidebar } from "./Sidebar";
+import { StatusBar } from "./StatusBar";
+import { TopBar } from "./TopBar";
 
 type Props = { version: string; minPasswordChars: number; onLock: () => void };
 
-/** Main window once the vault is unlocked: sidebar + current page. */
+/** Main window once the vault is unlocked: top bar, current page, status bar. */
 export function AppShell({ version, minPasswordChars, onLock }: Props) {
   const [current, setCurrent] = useState<PageId>("dashboard");
   const page = pageById(current);
@@ -26,7 +27,7 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
 
   return (
     <div className="shell">
-      <Sidebar current={current} onNavigate={setCurrent} onLock={onLock} version={version} />
+      <TopBar current={current} onNavigate={setCurrent} onLock={onLock} />
       <main className="content">
         <header className="page-header">
           <h1>{page.label}</h1>
@@ -42,6 +43,7 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
           )}
         </section>
       </main>
+      <StatusBar version={version} />
     </div>
   );
 }
