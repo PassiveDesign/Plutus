@@ -7,7 +7,8 @@ Rewritten at the end of every session. Read after AGENTS.md.
 ## Current state
 
 - **Design language adopted (branch `design/passive-ui`, PR open):** Plutus
-  now looks like PassiveSync via **Passive UI**, vendored in `src/kit/`
+  now looks like PassiveSync via **Passive UI** (repo
+  `PassiveDesign/passive-ui`), vendored in `src/kit/`
   (tokens, IBM Plex Sans + JetBrains Mono, shared components, timeline
   module). Gold accent; light/dark follows the system (`src/lib/theme.ts`).
   Shell is a top bar with tabs + Lock (`src/shell/TopBar.tsx`) and a status

@@ -90,7 +90,8 @@ Short, dated entries. Future sessions follow these without re-deciding.
   exists from v0.2.0 onward.
 - **2026-11-21 — The look comes from Passive UI,** the design system shared
   with PassiveSync, vendored into `src/kit/` by Passive UI's
-  `scripts/vendor.mjs --esm` (it has no npm home yet). Don't edit `src/kit/`;
+  `scripts/vendor.mjs --esm`. Passive UI is its own private repo,
+  https://github.com/PassiveDesign/passive-ui. Don't edit `src/kit/`;
   change Passive UI and copy it in again. `App.css` holds only Plutus's own
   layout and uses Passive UI's tokens (`--bg --pane --text --muted --accent
   --bad …`), never raw colours. Plutus's accent is **gold** (`data-app="plutus"`);
