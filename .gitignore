@@ -1,0 +1,32 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*~
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Local data (never commit real financial data)
+*.db
+*.sqlite
+*.sqlite3
+data/
+exports/
+
+# Build output
+build/
+dist/
+target/
+out/
+node_modules/
+__pycache__/
+*.pyc
