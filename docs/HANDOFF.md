@@ -6,6 +6,17 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Current state
 
+- **Design language adopted (branch `design/passive-ui`, PR open):** Plutus
+  now looks like PassiveSync via **Passive UI**, vendored in `src/kit/`
+  (tokens, IBM Plex Sans + JetBrains Mono, shared components, timeline
+  module). Gold accent; light/dark follows the system (`src/lib/theme.ts`).
+  Shell is a top bar with tabs + Lock (`src/shell/TopBar.tsx`) and a status
+  bar (`StatusBar.tsx`); `Sidebar.tsx` is gone. `App.css` rewritten on the
+  tokens (678 → ~200 lines); component class names unchanged, so all tests
+  stand (74 now, +2 for the theme). Negative amounts are no longer red (see
+  DECISIONS). Checked in a mocked browser preview in both modes. No Rust or
+  data changes. The account timeline waits for `list_transactions` (roadmap
+  D, second item).
 - Scaffold + CI green on Windows/Linux.
 - **v0.1.0 tagged; Release workflow succeeded on first run** (run 44712658224).
   Draft release assets: `Plutus_0.1.0_x64-setup.exe` (3.2 MB),

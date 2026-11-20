@@ -1,13 +1,12 @@
 import { PageDef } from "../shell/pages";
 
-/** Stand-in for pages not built yet. Replaced page by page as milestones land. */
+/** Stand-in for pages not built yet. Replaced page by page as milestones land.
+ *  Says what the page will hold, in Passive UI's empty-state pattern. */
 export function PlaceholderPage({ page }: { page: PageDef }) {
-  const Icon = page.icon;
   return (
-    <div className="placeholder">
-      <Icon size={40} strokeWidth={1.5} aria-hidden="true" />
-      <p>{page.summary}</p>
-      <p className="muted">Coming in {page.milestone}.</p>
+    <div className="empty placeholder">
+      <span className="cap">Coming in {page.milestone}</span>
+      <p className="lead">{page.summary}</p>
     </div>
   );
 }

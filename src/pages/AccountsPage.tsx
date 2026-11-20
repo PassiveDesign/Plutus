@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Wallet } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button, DataTable, useToast } from "../components";
 import type { Column } from "../components";
 import {
@@ -141,7 +141,6 @@ export function AccountsPage() {
 
       {visible.length === 0 ? (
         <div className="table-empty empty-cta">
-          <Wallet size={36} strokeWidth={1.5} aria-hidden="true" />
           <p>No accounts yet. Add your bank accounts, offsets, cards and loans to get started.</p>
           <Button onClick={() => setEditing("new")}>Add your first account</Button>
         </div>
