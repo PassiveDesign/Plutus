@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use plutus_core::{Database, DbError, MIN_PASSWORD_CHARS, Vault};
+use plutus_core::{Account, AccountInput, Database, DbError, MIN_PASSWORD_CHARS, Vault, accounts};
 use serde::Serialize;
 use tauri::{Manager, State};
 
@@ -11,18 +11,26 @@ struct AppState {
     vault: Arc<Mutex<Vault>>,
 }
 
-/// Error shape returned to the UI: a stable `code` plus a readable message.
+/// Error shape returned to the UI: a stable `code`, a readable message, and
+/// for validation errors the form `field` the message belongs to.
 #[derive(Debug, Serialize)]
 struct CommandError {
     code: &'static str,
     message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    field: Option<&'static str>,
 }
 
 impl From<DbError> for CommandError {
     fn from(e: DbError) -> Self {
+        let field = match &e {
+            DbError::Invalid { field, .. } | DbError::Conflict { field, .. } => Some(*field),
+            _ => None,
+        };
         Self {
             code: e.code(),
             message: e.to_string(),
+            field,
         }
     }
 }
@@ -32,6 +40,7 @@ impl From<tauri::Error> for CommandError {
         Self {
             code: "internal",
             message: e.to_string(),
+            field: None,
         }
     }
 }
@@ -42,6 +51,23 @@ type CmdResult<T> = Result<T, CommandError>;
 /// command must not brick the app).
 fn guard(vault: &Mutex<Vault>) -> MutexGuard<'_, Vault> {
     vault.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Run `f` against the unlocked database on a blocking thread, so the main
+/// (UI event) thread never waits on the vault lock or disk I/O.
+/// Returns `locked` if the vault isn't unlocked.
+async fn with_db<T, F>(vault: &Arc<Mutex<Vault>>, f: F) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&Database) -> Result<T, DbError> + Send + 'static,
+{
+    let vault = Arc::clone(vault);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let v = guard(&vault);
+        f(v.db()?)
+    })
+    .await?;
+    Ok(result?)
 }
 
 #[derive(Serialize)]
@@ -101,6 +127,41 @@ async fn change_password(
     Ok(())
 }
 
+/// All accounts in display order (active first).
+#[tauri::command]
+async fn list_accounts(
+    state: State<'_, AppState>,
+    include_archived: bool,
+) -> CmdResult<Vec<Account>> {
+    with_db(&state.vault, move |db| accounts::list(db, include_archived)).await
+}
+
+#[tauri::command]
+async fn create_account(state: State<'_, AppState>, input: AccountInput) -> CmdResult<Account> {
+    with_db(&state.vault, move |db| accounts::create(db, &input)).await
+}
+
+#[tauri::command]
+async fn update_account(
+    state: State<'_, AppState>,
+    id: i64,
+    input: AccountInput,
+) -> CmdResult<Account> {
+    with_db(&state.vault, move |db| accounts::update(db, id, &input)).await
+}
+
+#[tauri::command]
+async fn set_account_archived(
+    state: State<'_, AppState>,
+    id: i64,
+    archived: bool,
+) -> CmdResult<Account> {
+    with_db(&state.vault, move |db| {
+        accounts::set_archived(db, id, archived)
+    })
+    .await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -125,7 +186,11 @@ pub fn run() {
             create_vault,
             unlock_vault,
             lock_vault,
-            change_password
+            change_password,
+            list_accounts,
+            create_account,
+            update_account,
+            set_account_archived
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -148,5 +213,57 @@ mod tests {
         let e: CommandError = DbError::WrongPassword.into();
         assert_eq!(e.code, "wrong_password");
         assert_eq!(e.message, "incorrect password");
+        assert_eq!(e.field, None);
+        let json = serde_json::to_value(&e).unwrap();
+        assert!(json.get("field").is_none(), "field omitted when absent");
+    }
+
+    #[test]
+    fn validation_errors_carry_their_field() {
+        let e: CommandError = DbError::Invalid {
+            field: "bsb",
+            message: "BSB must be 6 digits, e.g. 063-000.".into(),
+        }
+        .into();
+        let json = serde_json::to_value(&e).unwrap();
+        assert_eq!(json["code"], "invalid");
+        assert_eq!(json["field"], "bsb");
+        assert_eq!(json["message"], "BSB must be 6 digits, e.g. 063-000.");
+    }
+
+    fn input(name: &str) -> AccountInput {
+        serde_json::from_value(serde_json::json!({
+            "name": name, "kind": "offset",
+            "opening_balance": 12345, "opening_date": "2026-11-01"
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn with_db_requires_unlock_then_runs_account_operations() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        tauri::async_runtime::block_on(async {
+            let err = with_db(&vault, |db| accounts::list(db, false))
+                .await
+                .unwrap_err();
+            assert_eq!(err.code, "locked");
+
+            guard(&vault).create("long enough pw").unwrap();
+            let created = with_db(&vault, |db| accounts::create(db, &input("Everyday")))
+                .await
+                .unwrap();
+            assert_eq!(created.opening_balance.cents(), 12345);
+
+            let dup = with_db(&vault, |db| accounts::create(db, &input("everyday")))
+                .await
+                .unwrap_err();
+            assert_eq!((dup.code, dup.field), ("conflict", Some("name")));
+
+            let listed = with_db(&vault, |db| accounts::list(db, false))
+                .await
+                .unwrap();
+            assert_eq!(listed.len(), 1);
+        });
     }
 }

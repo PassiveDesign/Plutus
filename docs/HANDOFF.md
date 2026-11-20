@@ -19,7 +19,15 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `is_liability`/`is_valued`/`can_be_offset_target`, `AccountInput`,
   `Account`, `get`/`list`/`create`/`update`/`set_archived`/`offsets_for`),
   validation + normalisation (BSB → 6 digits, account no. digits only),
-  offset-link rules, case-insensitive unique active names. 53 core tests.
+  offset-link rules, case-insensitive unique active names.
+- **Accounts plumbing done:** commands `list_accounts`, `create_account`,
+  `update_account`, `set_account_archived` via `with_db` helper (shell tests
+  cover locked → `locked`, create, duplicate → `conflict`/`name`).
+  `CommandError.field` for validation errors. TS: `src/lib/api.ts` account
+  types + wrappers + `splitError()`; `src/lib/accounts.ts` labels, groups,
+  `isLiability`/`isValued`/`canBeOffsetTarget`, `formatBsb`, `groupAccounts`,
+  `totalCents`. Kind display order pinned on both sides (Cash moved next to
+  Savings).
 - **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
   icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
   version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
@@ -60,20 +68,25 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M1 — Accounts commands + TS API** (shell + UI plumbing, no page yet):
-- `src-tauri/src/lib.rs`: commands `list_accounts(include_archived)`,
-  `create_account(input)`, `update_account(id, input)`,
-  `set_account_archived(id, archived)`; each takes the vault lock and calls
-  `vault.db()?` then `plutus_core::accounts::*`. Fast queries — no
-  `spawn_blocking` needed. `CommandError` gains an optional `field`
-  (from `DbError::Invalid/Conflict`) so the UI can attach errors to inputs.
-- `src/lib/api.ts`: `Account`, `AccountInput`, `AccountKind` types (money as
-  cents, dates as `YYYY-MM-DD` strings), wrappers, and a
-  `fieldErrors(e): Record<string,string>` helper.
-- `src/lib/accounts.ts`: kind labels + groups (Banking: transaction/offset/
-  savings/cash; Credit & loans; Investments & super; Other), `isLiability`.
-- Tests: Rust test for CommandError field mapping; Vitest for helpers.
-Then the Accounts page.
+**M1 — Accounts page** (`src/pages/AccountsPage.tsx`, switch in `AppShell`):
+- Load with `api.listAccounts(showArchived)`; empty state with an
+  "Add account" button.
+- One `DataTable` per group from `groupAccounts()` with a group total row/
+  heading; columns: Name (+ institution muted), Type (`KIND_LABELS`),
+  BSB/Acc no. (`formatBsb`), Balance (money column; balance = opening
+  balance until M2 transactions exist). Archived rows muted.
+- Header: "Add account" button, "Show archived" checkbox, net total.
+- Add/Edit in a `Modal`: name, type (select in `KIND_ORDER`, grouped
+  `<optgroup>`), institution, BSB, account number, opening balance (text →
+  parse in Rust? No: send cents — parse in UI with a strict `parseCents`
+  mirroring Rust `Money::parse`, OR add a `parse_money` command; prefer the
+  command to keep one parser), opening date (`<input type=date>`), notes.
+  For liabilities, label the balance "Amount owed" and negate on save.
+  Offset-for picker is the *next* task — omit for now (send `null`, but
+  preserve an existing link on edit).
+- Errors: `splitError` → field errors on TextFields, general → toast.
+- Archive/Restore from the edit modal.
+- Tests with mocked api; check in mocked browser preview (light + dark).
 
 ## Open questions for the owner
 

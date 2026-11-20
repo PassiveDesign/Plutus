@@ -35,11 +35,13 @@ pub enum AccountKind {
 }
 
 impl AccountKind {
-    /// All kinds, in display order.
+    /// All kinds, in display order. Must match `KIND_ORDER` in
+    /// src/lib/accounts.ts (Banking, Credit & loans, Investments & super, Other).
     pub const ALL: [AccountKind; 12] = [
         AccountKind::Transaction,
         AccountKind::Offset,
         AccountKind::Savings,
+        AccountKind::Cash,
         AccountKind::CreditCard,
         AccountKind::HomeLoan,
         AccountKind::Loan,
@@ -47,7 +49,6 @@ impl AccountKind {
         AccountKind::Shares,
         AccountKind::Investment,
         AccountKind::Property,
-        AccountKind::Cash,
         AccountKind::Other,
     ];
 
@@ -537,6 +538,29 @@ mod tests {
             assert_eq!(AccountKind::parse(kind.as_str()), Some(kind));
         }
         assert_eq!(AccountKind::parse("chequing"), None);
+    }
+
+    #[test]
+    fn display_order_matches_the_ui_groups() {
+        // Keep in sync with KIND_ORDER in src/lib/accounts.ts.
+        let ids: Vec<&str> = AccountKind::ALL.iter().map(|k| k.as_str()).collect();
+        assert_eq!(
+            ids,
+            [
+                "transaction",
+                "offset",
+                "savings",
+                "cash",
+                "credit_card",
+                "home_loan",
+                "loan",
+                "super",
+                "shares",
+                "investment",
+                "property",
+                "other"
+            ]
+        );
     }
 
     #[test]

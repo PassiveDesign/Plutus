@@ -50,7 +50,12 @@ Work can be cut off at any moment. Leave the repo resumable at all times.
   `core/src/db/migrations.rs` (`MIGRATIONS`).
   Never edit a migration that has shipped in a release.
 - **Rust owns the data.** The UI calls Tauri commands; it never touches SQLite
-  directly. Commands return `Result<T, String>`-style errors the UI can show.
+  directly. Data commands go through `with_db(&state.vault, |db| ...)` in
+  `src-tauri/src/lib.rs` (blocking thread, returns `locked` if not unlocked).
+  Errors reach the UI as `{ code, message, field? }`; use `splitError()` from
+  `src/lib/api.ts` to put `field` errors on inputs and the rest in a toast.
+- **Lists shared by Rust and TS** (account kinds, their order and
+  classification) are pinned by a test on *both* sides. Change both together.
 - **Tests:** business logic in Rust gets unit tests. Each roadmap task should
   leave `cargo test` and `npm run build` passing.
 - **UI building blocks live in `src/components/`** (`Button`, `TextField`,
