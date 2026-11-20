@@ -126,6 +126,26 @@ impl Database {
         })
     }
 
+    /// Check `password` against the database at `path` without disturbing any
+    /// open connection. Opens a separate keyed connection that is closed
+    /// before returning. Slow by design (full key derivation).
+    pub fn verify_password(path: &Path, password: &str) -> Result<bool, DbError> {
+        if password.is_empty() {
+            return Ok(false);
+        }
+        if !path.is_file() {
+            return Err(DbError::NotFound(path.to_path_buf()));
+        }
+        let flags = OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        let conn = Connection::open_with_flags(path, flags)?;
+        conn.pragma_update(None, "key", password)?;
+        match verify_key(&conn) {
+            Ok(()) => Ok(true),
+            Err(DbError::WrongPassword) => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Re-encrypt the database under a new password.
     pub fn change_password(&self, new_password: &str) -> Result<(), DbError> {
         check_password(new_password)?;
@@ -288,6 +308,36 @@ mod tests {
             Err(DbError::WrongPassword)
         ));
         Database::open(&path, "new").unwrap();
+    }
+
+    #[test]
+    fn verify_password_checks_without_disturbing_open_connection() {
+        let (_d, path) = tmp();
+        let db = Database::create(&path, "right").unwrap();
+        assert!(Database::verify_password(&path, "right").unwrap());
+        assert!(!Database::verify_password(&path, "wrong").unwrap());
+        assert!(!Database::verify_password(&path, "").unwrap());
+        // The original connection still works afterwards.
+        assert_eq!(db.schema_version().unwrap(), LATEST_VERSION);
+    }
+
+    #[test]
+    fn rekey_keeps_uncheckpointed_data() {
+        let (_d, path) = tmp();
+        let db = Database::create(&path, "old").unwrap();
+        db.conn()
+            .execute("INSERT INTO meta (key, value) VALUES ('probe', 'kept')", [])
+            .unwrap();
+        db.change_password("new").unwrap();
+        drop(db);
+        let db = Database::open(&path, "new").unwrap();
+        let v: String = db
+            .conn()
+            .query_row("SELECT value FROM meta WHERE key = 'probe'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(v, "kept");
     }
 
     #[test]

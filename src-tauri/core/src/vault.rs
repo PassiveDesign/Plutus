@@ -86,6 +86,18 @@ impl Vault {
         self.db = None;
     }
 
+    /// Change the password. Requires the vault to be unlocked and the current
+    /// password to be re-entered (so an unattended unlocked app can't be
+    /// re-keyed by someone else). The new password must meet the policy.
+    pub fn change_password(&mut self, current: &str, new: &str) -> Result<(), DbError> {
+        let db = self.db.as_ref().ok_or(DbError::Locked)?;
+        if !Database::verify_password(db.path(), current)? {
+            return Err(DbError::WrongPassword);
+        }
+        check_new_password(new)?;
+        db.change_password(new)
+    }
+
     /// The open database, or [`DbError::Locked`].
     pub fn db(&self) -> Result<&Database, DbError> {
         self.db.as_ref().ok_or(DbError::Locked)
@@ -185,6 +197,60 @@ mod tests {
         let (_d, mut v) = vault();
         assert!(matches!(v.unlock("whatever pw"), Err(DbError::NotFound(_))));
         assert_eq!(v.status(), VaultStatus::New);
+    }
+
+    #[test]
+    fn change_password_full_cycle() {
+        let (_d, mut v) = vault();
+        v.create("first password").unwrap();
+        v.change_password("first password", "second password")
+            .unwrap();
+        assert_eq!(
+            v.status(),
+            VaultStatus::Unlocked,
+            "stays unlocked after change"
+        );
+        v.lock();
+        assert!(matches!(
+            v.unlock("first password"),
+            Err(DbError::WrongPassword)
+        ));
+        v.unlock("second password").unwrap();
+    }
+
+    #[test]
+    fn change_password_rejects_wrong_current_and_keeps_old() {
+        let (_d, mut v) = vault();
+        v.create("first password").unwrap();
+        assert!(matches!(
+            v.change_password("not it at all", "second password"),
+            Err(DbError::WrongPassword)
+        ));
+        v.lock();
+        v.unlock("first password").unwrap();
+    }
+
+    #[test]
+    fn change_password_enforces_policy_on_new() {
+        let (_d, mut v) = vault();
+        v.create("first password").unwrap();
+        assert!(matches!(
+            v.change_password("first password", "short"),
+            Err(DbError::PasswordTooShort { .. })
+        ));
+        v.lock();
+        v.unlock("first password").unwrap();
+    }
+
+    #[test]
+    fn change_password_requires_unlocked() {
+        let (_d, mut v) = vault();
+        v.create("first password").unwrap();
+        v.lock();
+        assert!(matches!(
+            v.change_password("first password", "second password"),
+            Err(DbError::Locked)
+        ));
     }
 
     #[test]
