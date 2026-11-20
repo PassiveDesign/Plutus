@@ -137,6 +137,7 @@ export function TransactionForm({ transaction: tx, accounts, defaultAccountId, o
 
         <fieldset className="radio-row">
           <legend>Direction</legend>
+          <div className="radio-options">
           <label className="check">
             <input
               type="radio"
@@ -157,6 +158,7 @@ export function TransactionForm({ transaction: tx, accounts, defaultAccountId, o
             />
             Money in
           </label>
+          </div>
         </fieldset>
 
         <div className="form-row">

@@ -88,3 +88,11 @@ Short, dated entries. Future sessions follow these without re-deciding.
 - **2026-11-20 — Migration tests upgrade from every older schema version**
   (`upgrades_from_every_older_version`), since the owner's real database
   exists from v0.2.0 onward.
+- **2026-11-21 — Transactions are entered as Money out / Money in plus a
+  positive amount;** the sign comes from the choice (a typed minus is
+  ignored). Display keeps signed amounts.
+- **2026-11-21 — Dates display as "5 Nov 2026"** via `src/lib/dates.ts`,
+  formatted from the `YYYY-MM-DD` string directly (never through `Date`
+  parsing, which can shift the day across timezones).
+- **2026-11-21 — Deleting a transaction needs a second click** ("Really
+  delete?") in the edit dialog; no undo yet.

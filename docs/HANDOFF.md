@@ -57,6 +57,15 @@ Rewritten at the end of every session. Read after AGENTS.md.
   falls back to opening balance); AccountsPage shows current balances in
   rows, group totals, net total and loan net owed; the form still edits the
   opening balance. 75 UI tests.
+- **Transactions page done:** `src/pages/TransactionsPage.tsx` (account +
+  inclusive date filters, 100/page paging with "1–100 of N", account column
+  hidden when filtered, cleared checkbox toggles in place, empty/no-match/
+  no-accounts states, load-error retry) and `TransactionForm.tsx` (Money
+  out/in + positive amount via `parse_money`, defaults to the filtered
+  account and today, archived accounts hidden except the transaction's own,
+  inline field errors, two-step delete). `src/lib/dates.ts`. Inputs and
+  selects share a 2.75rem height. 93 UI tests (12 page, 6 dates); checked in
+  mocked preview, fixed the Direction radio layout there.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -102,20 +111,16 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M2 — Transactions page** (`src/pages/TransactionsPage.tsx`, switch in
-`AppShell`). Work in a worktree (see AGENTS.md).
-- Filters: account (`SelectField`, "All accounts"), from/to dates.
-- `DataTable`: Date, Payee (+ raw description muted), Account (name; hide
-  when filtered to one), Amount (money column), Cleared (checkbox toggle
-  calling `updateTransaction`). Newest first.
-- Paging: 100/page with `countTransactions`; Prev/Next + "41–60 of 312".
-- Add/Edit modal: account, date (default today), amount entered as
-  money-in/money-out (two radio buttons + positive amount → signed cents via
-  `parseMoney`), payee, description, memo, cleared. Delete with confirm.
-  Field errors via `splitError`.
-- Empty state; archived accounts excluded from the add picker.
-- Tests with mocked api + mocked browser preview. If PR #1 has merged by
-  then, follow its Passive UI rules (tokens, no raw colours).
+**M2 — Running balance** in the transactions table when filtered to one
+account: add `running_balance` to the list response for single-account
+queries (core: compute in SQL with a window function over the account's
+transactions in date/id order, starting from the opening balance and only
+counting rows on/after `opening_date` — pre-opening rows show no running
+balance), a Balance column in `TransactionsPage` when `accountId` is set,
+tests on both sides. Work in a worktree (AGENTS.md).
+
+Then: transfers between accounts (migration adds `transfer_id`), then cut
+**v0.3.0** so the owner can start entering transactions.
 
 ## Open questions for the owner
 
