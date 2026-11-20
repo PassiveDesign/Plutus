@@ -10,9 +10,10 @@ Rewritten at the end of every session. Read after AGENTS.md.
 - **v0.1.0 tagged; Release workflow succeeded on first run** (run 44712658224).
   Draft release assets: `Plutus_0.1.0_x64-setup.exe` (3.2 MB),
   `Plutus_0.1.0_x64_en-US.msi` (4.4 MB), `Plutus_0.1.0_amd64.AppImage`
-  (79.5 MB), `.deb` (4.8 MB), `.rpm` (4.8 MB). **Awaiting owner smoke test**
-  — the real desktop app has not been run by anyone yet (dev host has no
-  display).
+  (79.5 MB), `.deb` (4.8 MB), `.rpm` (4.8 MB). **Owner smoke test passed on
+  2026-11-20** (setup validation, Ctrl+L, wrong/right unlock, change password,
+  restart). UI reported snappy. Release published (no longer draft).
+  **M0 complete.**
 - **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
   icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
   version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
@@ -53,12 +54,7 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. **Get the owner's v0.1.0 smoke-test results** (checklist: first-run setup
-   validation → Ctrl+L lock → wrong/right unlock with refocus → change
-   password in Settings → full restart → old pw fails, new works). Fix any
-   findings, release as v0.1.1 if needed (bump all 3 version files), then
-   tick the v0.1.0 roadmap item and publish the draft.
-2. Then **M1 — Accounts: schema + Rust model** (migration 0002 `accounts`:
+**M1 — Accounts: schema + Rust model** (migration 0002 `accounts`:
    id, name, kind [transaction/savings/credit_card/loan/cash/other],
    opening_balance_cents, opening_date, bsb, account_number, archived_at,
    created_at; `plutus-core::accounts` repository with tests).

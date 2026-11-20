@@ -15,7 +15,7 @@ Feature scope is a first draft — edit freely.
 - [x] UI shell: sidebar navigation (Dashboard, Accounts, Transactions, Budgets, Reports, Settings) with empty pages
 - [x] Shared UI basics: layout, theme (light/dark), form + table components, error toast
 - [x] Change-password in Settings (needs the UI shell; verify current password first) (SQLCipher rekey)
-- [ ] Cut `v0.1.0` release; install on Windows and Linux to prove the pipeline
+- [x] Cut `v0.1.0` release; install on Windows and Linux to prove the pipeline
 
 ## M1 — Accounts
 
