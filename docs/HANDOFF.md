@@ -6,7 +6,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Current state
 
-- Scaffold + CI green on Windows/Linux. Release workflow not yet exercised.
+- Scaffold + CI green on Windows/Linux.
+- **v0.1.0 tagged; Release workflow succeeded on first run** (run 44712658224).
+  Draft release assets: `Plutus_0.1.0_x64-setup.exe` (3.2 MB),
+  `Plutus_0.1.0_x64_en-US.msi` (4.4 MB), `Plutus_0.1.0_amd64.AppImage`
+  (79.5 MB), `.deb` (4.8 MB), `.rpm` (4.8 MB). **Awaiting owner smoke test**
+  — the real desktop app has not been run by anyone yet (dev host has no
+  display).
 - **UI shell done:** `src/shell/` — `pages.ts` (page registry: id, label,
   icon, summary, milestone), `Sidebar.tsx` (nav + Settings/Lock footer +
   version), `AppShell.tsx` (page state, Ctrl+L locks). Every page is
@@ -47,21 +53,15 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M0 — Cut v0.1.0** (first real installers):
-1. Version is already `0.1.0` in `package.json`, `src-tauri/Cargo.toml`,
-   `src-tauri/tauri.conf.json` — confirm, no bump needed for the first tag.
-2. `git tag v0.1.0 && git push origin v0.1.0`; watch the **Release** workflow
-   (`gh run list --workflow Release`). It has never run — expect to fix
-   something (rpm tooling, bundle targets, NSIS/MSI on Windows).
-3. Check the draft release has: `.exe` + `.msi` (Windows), `.AppImage`,
-   `.deb`, `.rpm` (Linux).
-4. Owner installs on Windows and Linux and runs the smoke test: first-run
-   setup → lock → unlock (wrong then right) → change password → restart app →
-   unlock with new password. This is the **first time the real desktop app
-   runs** — everything so far was CI-compiled or mock-previewed.
-5. Fix whatever the smoke test finds, then publish/keep the draft.
-
-Then M1 — Accounts.
+1. **Get the owner's v0.1.0 smoke-test results** (checklist: first-run setup
+   validation → Ctrl+L lock → wrong/right unlock with refocus → change
+   password in Settings → full restart → old pw fails, new works). Fix any
+   findings, release as v0.1.1 if needed (bump all 3 version files), then
+   tick the v0.1.0 roadmap item and publish the draft.
+2. Then **M1 — Accounts: schema + Rust model** (migration 0002 `accounts`:
+   id, name, kind [transaction/savings/credit_card/loan/cash/other],
+   opening_balance_cents, opening_date, bsb, account_number, archived_at,
+   created_at; `plutus-core::accounts` repository with tests).
 
 ## Open questions for the owner
 
