@@ -11,7 +11,7 @@ Feature scope is a first draft — edit freely.
 - [x] Confirm first CI run green on Windows + Linux
 - [x] Encrypted SQLite layer: `rusqlite` with bundled SQLCipher, open DB in app-data dir with a key derived from the password, migration runner, first migration (`meta` table), unit tests (wrong password rejected, migrations idempotent)
 - [x] Password flow: first-run "create password" screen (with no-recovery warning), unlock screen on every launch, lock on close; DB stays closed until unlocked
-- [ ] Money type (`i64` cents, AUD only) with parse/format helpers (`$1,234.56`, negatives) and tests
+- [x] Money type (`i64` cents, AUD only) with parse/format helpers (`$1,234.56`, negatives) and tests
 - [ ] UI shell: sidebar navigation (Dashboard, Accounts, Transactions, Budgets, Reports, Settings) with empty pages
 - [ ] Shared UI basics: layout, theme (light/dark), form + table components, error toast
 - [ ] Change-password in Settings (needs the UI shell; verify current password first) (SQLCipher rekey)

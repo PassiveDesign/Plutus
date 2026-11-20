@@ -41,7 +41,9 @@ Work can be cut off at any moment. Leave the repo resumable at all times.
 ## Conventions
 
 - **Money is integer minor units** (`i64` cents) everywhere. Never floats. AUD only.
-  Format only at the UI edge.
+  Use `plutus_core::Money` (parse with `Money::parse`, display with `to_string()`
+  → `$1,234.56`). It crosses to the UI as integer cents; keep values within
+  `Money::MAX_CENTS` (JS safe-integer limit). Format only at the UI edge.
 - **Dates:** store ISO-8601 (`YYYY-MM-DD` for transaction dates, UTC RFC 3339
   for timestamps).
 - **DB schema changes only via numbered migrations** in `src-tauri/core/migrations/`, registered in

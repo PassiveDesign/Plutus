@@ -7,6 +7,10 @@ Rewritten at the end of every session. Read after AGENTS.md.
 ## Current state
 
 - Scaffold + CI green on Windows/Linux. Release workflow not yet exercised.
+- **Money type done** (`plutus-core::money::Money`): strict parser (`$1,234.56`,
+  `(12.30)`, `-$5`, rejects `1.234`/bad grouping), Display `$1,234.56`,
+  plain `1234.56`, checked arithmetic capped at ±2^53−1 cents, serde as
+  integer cents. 13 tests.
 - **Encrypted DB layer** (`plutus-core::db`): SQLCipher, migrations, 0001 `meta`.
 - **Password flow done:**
   - `plutus-core::vault::Vault` state machine (new/locked/unlocked), min 8
@@ -18,19 +22,21 @@ Rewritten at the end of every session. Read after AGENTS.md.
     (confirm field, no-recovery warning + checkbox), `UnlockScreen.tsx`.
     `App.tsx` routes on vault status; unlocked view is still a placeholder
     with a Lock button.
-  - 21 core tests pass locally; UI flow checked in a browser against a mocked
+  - Core tests pass locally; UI flow checked in a browser against a mocked
     backend (create → lock → wrong pw error → unlock). **Not yet run as a real
     desktop app** — needs the GTK/WebKit packages or the v0.1.0 installers.
 
 ## Next task
 
-**M0 — Money type** in `plutus-core` (`src-tauri/core/src/money.rs`): `Money(i64)`
-cents, AUD only. Parse user/CSV input (`1234.56`, `$1,234.56`, `-12.30`,
-`(12.30)`, `12`), format as `$1,234.56` / `-$12.30`, checked add/sub, serde
-(as integer cents) for the UI boundary. Thorough unit tests incl. rounding
-rejection (`1.234` is an error, not rounded).
+**M0 — UI shell:** sidebar navigation (Dashboard, Accounts, Transactions,
+Budgets, Reports, Settings) with empty placeholder pages, shown only when
+unlocked; Lock button in the sidebar footer. No router library needed yet —
+a `page` state in `App.tsx` is enough; add `react-router` only if deep links
+become necessary. Verify with the mocked-backend browser preview (see
+desktop-app skill / AGENTS) before pushing.
 
-After that: UI shell (sidebar), shared UI basics, change-password, v0.1.0.
+After that: shared UI basics (incl. a TS `formatCents()` matching
+`Money`'s Display: `$1,234.56`, `-$12.30`), change-password, v0.1.0.
 
 ## Open questions for the owner
 
