@@ -79,15 +79,15 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**Cut v0.2.0** (accounts release):
-1. Bump `0.1.0` → `0.2.0` in `package.json`, `src-tauri/Cargo.toml`,
-   `src-tauri/tauri.conf.json` (and let `Cargo.lock` update); commit, CI green.
-2. `git tag -a v0.2.0 && git push origin v0.2.0`; watch Release; check 5 assets.
-3. Owner smoke test: install over v0.1.0 → unlock with existing password
-   (DB upgrades v1 → v2 silently) → add accounts incl. home loan + offsets →
-   restart → data still there. Then publish the draft and tick M1.5.
-
-Then **M2 — Transactions: schema + model** (migration 0003).
+1. **Get the owner's v0.2.0 smoke-test results.** v0.2.0 tagged (`9b4932d`),
+   Release run 44723022624 green; draft has exe (3.3 MB), msi (4.5 MB),
+   AppImage (79.6 MB), deb/rpm (4.9 MB). Checklist: install over v0.1.0 →
+   unlock with existing password (v1 → v2 upgrade) → add real accounts incl.
+   home loan + linked offsets, check net owed → negative amount, dashed BSB,
+   archive/restore, duplicate name → restart, data persists. If good: publish
+   the draft (`gh release edit v0.2.0 --draft=false --latest`), tick M1.5.
+   If not: fix, cut v0.2.1.
+2. Then **M2 — Transactions: schema + model** (migration 0003).
 
 ## Open questions for the owner
 
