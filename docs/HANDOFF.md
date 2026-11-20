@@ -6,27 +6,31 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Current state
 
-- Tauri 2 + React/TS scaffold on `main`. Window shows "Plutus" + version from
-  the Rust `app_info` command.
-- CI green on Windows + Linux (run 44684350305: fmt, clippy, tests, UI build).
-- Release workflow written but not yet exercised (first tag is `v0.1.0`, end of M0).
-- Planning docs and owner decisions recorded (AUD only, SQLCipher password
-  lock, Bank of Melbourne CSV import, open banking deferred).
-- **Encrypted DB layer done** in `plutus-core` (`src-tauri/core`):
-  `Database::create/open/change_password`, migration runner, migration 0001
-  (`meta` table). 12 unit tests pass locally (wrong password, file really
-  encrypted, quotes/unicode passwords, rekey, no-overwrite, idempotent migrations).
-- Not yet wired into the Tauri app — that's the next task.
+- Scaffold + CI green on Windows/Linux. Release workflow not yet exercised.
+- **Encrypted DB layer** (`plutus-core::db`): SQLCipher, migrations, 0001 `meta`.
+- **Password flow done:**
+  - `plutus-core::vault::Vault` state machine (new/locked/unlocked), min 8
+    chars for new passwords, stable error codes (`DbError::code()`).
+  - Tauri commands in `src-tauri/src/lib.rs`: `vault_status`, `create_vault`,
+    `unlock_vault`, `lock_vault` (create/unlock run in `spawn_blocking`).
+    Errors reach the UI as `{ code, message }`.
+  - UI: `src/lib/api.ts` (typed wrappers), `src/screens/SetupScreen.tsx`
+    (confirm field, no-recovery warning + checkbox), `UnlockScreen.tsx`.
+    `App.tsx` routes on vault status; unlocked view is still a placeholder
+    with a Lock button.
+  - 21 core tests pass locally; UI flow checked in a browser against a mocked
+    backend (create → lock → wrong pw error → unlock). **Not yet run as a real
+    desktop app** — needs the GTK/WebKit packages or the v0.1.0 installers.
 
 ## Next task
 
-**M0 — Password flow** (see ROADMAP): Tauri app state holding
-`Mutex<Option<Database>>`, commands `vault_status` (new/locked/unlocked),
-`create_vault(password)`, `unlock(password)`, `lock()`; DB path from
-`app.path().app_data_dir()` + `Database::path_in`. UI: create-password screen
-(confirm field + no-recovery warning) and unlock screen; app content only
-renders when unlocked. Run blocking DB open off the main thread
-(`tauri::async_runtime::spawn_blocking`) — PBKDF2 takes a moment.
+**M0 — Money type** in `plutus-core` (`src-tauri/core/src/money.rs`): `Money(i64)`
+cents, AUD only. Parse user/CSV input (`1234.56`, `$1,234.56`, `-12.30`,
+`(12.30)`, `12`), format as `$1,234.56` / `-$12.30`, checked add/sub, serde
+(as integer cents) for the UI boundary. Thorough unit tests incl. rounding
+rejection (`1.234` is an error, not rounded).
+
+After that: UI shell (sidebar), shared UI basics, change-password, v0.1.0.
 
 ## Open questions for the owner
 
