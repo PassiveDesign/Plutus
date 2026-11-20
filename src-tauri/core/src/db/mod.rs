@@ -24,6 +24,10 @@ pub enum DbError {
     WrongPassword,
     #[error("password must not be empty")]
     EmptyPassword,
+    #[error("password must be at least {min} characters")]
+    PasswordTooShort { min: usize },
+    #[error("the vault is locked")]
+    Locked,
     #[error("a database already exists at {0}")]
     AlreadyExists(PathBuf),
     #[error("no database found at {0}")]
@@ -42,6 +46,24 @@ pub enum DbError {
     Io(#[from] std::io::Error),
     #[error("database error: {0}")]
     Sqlite(#[from] rusqlite::Error),
+}
+
+impl DbError {
+    /// Stable machine-readable code for the UI (messages may change; codes don't).
+    pub fn code(&self) -> &'static str {
+        match self {
+            DbError::WrongPassword => "wrong_password",
+            DbError::EmptyPassword => "empty_password",
+            DbError::PasswordTooShort { .. } => "password_too_short",
+            DbError::Locked => "locked",
+            DbError::AlreadyExists(_) => "already_exists",
+            DbError::NotFound(_) => "not_found",
+            DbError::NewerSchema { .. } => "newer_schema",
+            DbError::Migration { .. } => "migration_failed",
+            DbError::Io(_) => "io",
+            DbError::Sqlite(_) => "database",
+        }
+    }
 }
 
 /// An unlocked, fully migrated Plutus database.
@@ -266,6 +288,16 @@ mod tests {
             Err(DbError::WrongPassword)
         ));
         Database::open(&path, "new").unwrap();
+    }
+
+    #[test]
+    fn error_codes_are_stable() {
+        assert_eq!(DbError::WrongPassword.code(), "wrong_password");
+        assert_eq!(DbError::Locked.code(), "locked");
+        assert_eq!(
+            DbError::PasswordTooShort { min: 8 }.code(),
+            "password_too_short"
+        );
     }
 
     #[test]
