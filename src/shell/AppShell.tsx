@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AccountsPage } from "../pages/AccountsPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { SettingsPage } from "../pages/SettingsPage";
+import { TransactionsPage } from "../pages/TransactionsPage";
 import { pageById, PageId } from "./pages";
 import { Sidebar } from "./Sidebar";
 
@@ -37,6 +38,8 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
             <SettingsPage minChars={minPasswordChars} />
           ) : current === "accounts" ? (
             <AccountsPage />
+          ) : current === "transactions" ? (
+            <TransactionsPage />
           ) : (
             <PlaceholderPage page={page} />
           )}

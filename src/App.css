@@ -304,6 +304,51 @@ h1 {
   color: inherit;
 }
 
+/* ---- Transactions ---- */
+
+.transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.toolbar.filters {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.toolbar.filters .field {
+  min-width: 160px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.pager .muted {
+  margin: 0 0.5rem 0 0;
+}
+
+.radio-row {
+  display: flex;
+  gap: 1.25rem;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.radio-row legend {
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0;
+  margin-bottom: 0.35rem;
+  float: left;
+  width: 100%;
+}
+
 /* ---- Settings ---- */
 
 .settings {
