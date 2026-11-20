@@ -26,7 +26,7 @@ Feature scope is a first draft — edit freely.
 
 ## M1.5 — Release
 
-- [ ] Cut `v0.2.0` (accounts); owner enters real accounts; verify v0.1.0 → v0.2.0 database upgrade
+- [x] Cut `v0.2.0` (accounts); owner enters real accounts; verify v0.1.0 → v0.2.0 database upgrade
 
 ## M2 — Transactions
 
