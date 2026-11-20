@@ -12,11 +12,21 @@ Rewritten at the end of every session. Read after AGENTS.md.
 - Release workflow written but not yet exercised (first tag is `v0.1.0`, end of M0).
 - Planning docs and owner decisions recorded (AUD only, SQLCipher password
   lock, Bank of Melbourne CSV import, open banking deferred).
-- No database, no features yet.
+- **Encrypted DB layer done** in `plutus-core` (`src-tauri/core`):
+  `Database::create/open/change_password`, migration runner, migration 0001
+  (`meta` table). 12 unit tests pass locally (wrong password, file really
+  encrypted, quotes/unicode passwords, rekey, no-overwrite, idempotent migrations).
+- Not yet wired into the Tauri app — that's the next task.
 
 ## Next task
 
-**M0 — Encrypted SQLite layer** (see ROADMAP).
+**M0 — Password flow** (see ROADMAP): Tauri app state holding
+`Mutex<Option<Database>>`, commands `vault_status` (new/locked/unlocked),
+`create_vault(password)`, `unlock(password)`, `lock()`; DB path from
+`app.path().app_data_dir()` + `Database::path_in`. UI: create-password screen
+(confirm field + no-recovery warning) and unlock screen; app content only
+renders when unlocked. Run blocking DB open off the main thread
+(`tauri::async_runtime::spawn_blocking`) — PBKDF2 takes a moment.
 
 ## Open questions for the owner
 
@@ -27,7 +37,9 @@ Rewritten at the end of every session. Read after AGENTS.md.
 ## Environment notes
 
 - Dev host lacks GTK/WebKit `-dev` packages (owner will install later), so
-  Rust compiles only in CI for now.
+  only `plutus-core` compiles locally (`cargo test -p plutus-core`); the
+  Tauri shell compiles in CI.
+- Cold `plutus-core` build takes ~80s (SQLCipher + vendored OpenSSL).
 - `gh` lives at `~/.local/bin/gh`; Rust via rustup in `~/.cargo`.
 
 ## Half-done work

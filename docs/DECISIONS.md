@@ -30,3 +30,11 @@ Short, dated entries. Future sessions follow these without re-deciding.
   accepted; personal use).
 - **2026-11-20 — Work is planned around usage limits:** small roadmap tasks,
   frequent pushes, HANDOFF.md updated at the end of every session. See AGENTS.md.
+- **2026-11-20 — Logic lives in `plutus-core`** (`src-tauri/core`), a crate with
+  no GUI dependencies; the Tauri crate is a thin shell. Keeps the core
+  testable everywhere, including hosts without GTK/WebKit.
+- **2026-11-20 — SQLCipher via `rusqlite` `bundled-sqlcipher-vendored-openssl`;
+  key derivation is SQLCipher 4's default** (PBKDF2-HMAC-SHA512, 256k
+  iterations, random per-file salt). Password passed as passphrase with
+  `PRAGMA key`. Migrations are a small in-house runner on `PRAGMA user_version`
+  (no extra crate).

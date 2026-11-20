@@ -1,0 +1,16 @@
+[package]
+name = "plutus-core"
+version = "0.1.0"
+description = "Plutus core: encrypted storage and business logic (no GUI dependencies)"
+authors = ["PassiveDesign"]
+edition = "2024"
+publish = false
+
+[dependencies]
+# SQLCipher (encrypted SQLite) compiled from source, with OpenSSL vendored so
+# Windows and Linux builds need no system crypto libraries.
+rusqlite = { version = "0.37", features = ["bundled-sqlcipher-vendored-openssl"] }
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
