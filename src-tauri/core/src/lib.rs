@@ -8,6 +8,7 @@ pub mod categories;
 pub mod db;
 pub mod import;
 pub mod money;
+pub mod rules;
 pub mod transactions;
 pub mod transfers;
 pub mod vault;

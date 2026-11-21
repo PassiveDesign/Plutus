@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use plutus_core::{
     Account, AccountInput, Category, CategoryGroup, CategoryInput, Database, DbError, GroupInput,
     LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction, TransactionInput,
-    TransactionQuery, Transfer, TransferInput, Vault, accounts, categories, import, transactions,
-    transfers,
+    TransactionQuery, Transfer, TransferInput, Vault, accounts, categories, import, rules,
+    transactions, transfers,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -367,6 +367,46 @@ async fn commit_import(
     .await
 }
 
+/// Auto-categorisation rules in the order they're tried.
+#[tauri::command]
+async fn list_rules(state: State<'_, AppState>) -> CmdResult<Vec<rules::Rule>> {
+    with_db(&state.vault, rules::list).await
+}
+
+#[tauri::command]
+async fn create_rule(
+    state: State<'_, AppState>,
+    input: rules::RuleInput,
+) -> CmdResult<rules::Rule> {
+    with_db(&state.vault, move |db| rules::create(db, &input)).await
+}
+
+#[tauri::command]
+async fn update_rule(
+    state: State<'_, AppState>,
+    id: i64,
+    input: rules::RuleInput,
+) -> CmdResult<rules::Rule> {
+    with_db(&state.vault, move |db| rules::update(db, id, &input)).await
+}
+
+#[tauri::command]
+async fn delete_rule(state: State<'_, AppState>, id: i64) -> CmdResult<()> {
+    with_db(&state.vault, move |db| rules::delete(db, id)).await
+}
+
+/// Move a rule one place earlier (`up`) or later; returns the new order.
+#[tauri::command]
+async fn move_rule(state: State<'_, AppState>, id: i64, up: bool) -> CmdResult<Vec<rules::Rule>> {
+    with_db(&state.vault, move |db| rules::move_rule(db, id, up)).await
+}
+
+/// Categorise uncategorised transactions that a rule matches; returns the count.
+#[tauri::command]
+async fn apply_rules(state: State<'_, AppState>) -> CmdResult<usize> {
+    with_db(&state.vault, |db| rules::apply(db, None)).await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -415,7 +455,13 @@ pub fn run() {
             update_category,
             set_category_archived,
             preview_bom_import,
-            commit_import
+            commit_import,
+            list_rules,
+            create_rule,
+            update_rule,
+            delete_rule,
+            move_rule,
+            apply_rules
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -710,6 +756,41 @@ mod tests {
             .await
             .unwrap_err();
             assert_eq!(e.field, Some("category_id"));
+        });
+    }
+
+    #[test]
+    fn rule_commands_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let fuel = with_db(&vault, |db| categories::tree(db, false))
+                .await
+                .unwrap()
+                .into_iter()
+                .flat_map(|g| g.categories)
+                .find(|c| c.name == "Fuel")
+                .unwrap()
+                .id;
+            let input: rules::RuleInput = serde_json::from_value(serde_json::json!({
+                "pattern": "shell", "match_field": "payee", "direction": "out", "category_id": fuel
+            }))
+            .unwrap();
+            let r = with_db(&vault, move |db| rules::create(db, &input))
+                .await
+                .unwrap();
+            assert_eq!(serde_json::to_value(&r).unwrap()["direction"], "out");
+            let n = with_db(&vault, |db| rules::apply(db, None)).await.unwrap();
+            assert_eq!(n, 0);
+            let bad: rules::RuleInput = serde_json::from_value(serde_json::json!({
+                "pattern": " ", "match_field": "either", "category_id": fuel
+            }))
+            .unwrap();
+            let e = with_db(&vault, move |db| rules::create(db, &bad))
+                .await
+                .unwrap_err();
+            assert_eq!(e.field, Some("pattern"));
         });
     }
 }

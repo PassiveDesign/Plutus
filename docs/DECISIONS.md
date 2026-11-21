@@ -134,3 +134,11 @@ Short, dated entries. Future sessions follow these without re-deciding.
   edit, skipped in bulk). The TS `TransactionInput.category_id` is required
   so every edit path (e.g. the Cleared toggle) sends it back instead of
   silently clearing it. Bulk assign is per page selection.
+- **2026-11-21 — Rules are ordered "contains" matches.** Case-insensitive
+  substring of payee, description or either (whitespace collapsed),
+  optionally money in/out only; first match by `sort_order` wins. Rules
+  fill only missing categories, skip transfers, and rules pointing at
+  archived categories are ignored. Applied automatically on import (shown
+  in the preview) and on demand ("Apply to uncategorised"). No regexes:
+  simpler to explain, and enough for bank text. Rules can be deleted (they
+  are settings, not history).

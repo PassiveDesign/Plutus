@@ -110,6 +110,14 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `category_usage`), add/edit/move/archive/restore via
   `src/pages/CategoryForms.tsx` (`GroupForm`, `CategoryForm`), "Show
   archived (N)". 100 core, 122 UI tests.
+- **Rules done (M3 complete):** migration 0007 (schema v7,
+  `category_rules`), `plutus-core::rules` (`Rule`, `RuleInput`,
+  `MatchField`, `Direction`, list/active/create/update/delete/move_rule/
+  apply/category_for); import preview shows `category_id`, commit applies
+  rules. Commands `list_rules`, `create_rule`, `update_rule`,
+  `delete_rule`, `move_rule`, `apply_rules`. UI: `src/pages/RulesSection.tsx`
+  (section at the top of Categories, `RuleForm`, `describeRule`), Category
+  column in the import preview. 105 core, 128 UI tests. Version 0.5.0.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -155,19 +163,20 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M3 — Auto-categorisation rules** (last M3 task, then v0.5.0):
-- Migration 0007 `category_rules` (id, match_field 'payee'|'description'|
-  'either', pattern TEXT (case-insensitive "contains"), optional
-  amount sign 'in'|'out'|NULL, category_id FK RESTRICT, priority/sort_order,
-  created_at). Core `rules` module: CRUD, `apply(db, ids or all
-  uncategorised)` → count; first matching rule by sort_order wins; never
-  overwrite an existing category; skip transfers.
-- Import: apply rules to newly imported rows inside `import::commit`
-  (and show the guessed category in the preview — `PreviewRow.category_id`).
-- UI: a "Rules" section on the Categories page (list, add/edit/delete,
-  reorder up/down), "Apply rules to uncategorised" button with a count
-  toast; quick "Create rule from this…" in the Transactions bulk bar
-  (prefill pattern from the payee) — optional if time is short.
+1. **v0.5.0** is tagged automatically if CI passes (version bumped in the
+   same push). Owner smoke test: install over v0.4.0 → unlock (v6 → v7)
+   → Categories page: rename/archive something, add a couple of rules
+   (e.g. "woolworths" → Groceries), Apply to uncategorised → Transactions:
+   category column, set a category in the form, bulk-set a few → import a
+   new export: rule categories in the preview and after import → restart.
+   If good: publish, tick M3.5.
+2. Then **M5 — Budgets** (schema + commands first): monthly budget per
+   expense category (`budgets` table: category_id, month 'YYYY-MM',
+   amount_cents; or a default amount per category with per-month
+   overrides — decide and record in DECISIONS), spent = −sum of
+   transactions in the month for that category.
+   Optional quick win before M5: "Create rule…" from the Transactions bulk
+   bar (prefill pattern with the selected payee).
 
 ## Open questions for the owner
 

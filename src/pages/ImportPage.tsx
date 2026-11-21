@@ -6,6 +6,7 @@ import {
   Account,
   api,
   errorMessage,
+  CategoryGroup,
   ImportPreview,
   ImportPreviewRow,
   ImportRow,
@@ -13,6 +14,7 @@ import {
   splitError,
 } from "../lib/api";
 import { formatDate } from "../lib/dates";
+import { categoryIndex } from "./CategorySelect";
 import { formatCents } from "../lib/money";
 
 const STATUS_LABELS: Record<ImportStatus, string> = {
@@ -46,7 +48,7 @@ async function readText(file: File): Promise<string> {
 }
 
 /** Strip the preview-only fields before sending rows back. */
-function toImportRow({ status: _s, matched_transaction_id: _m, ...row }: ImportPreviewRow): ImportRow {
+function toImportRow({ status: _s, matched_transaction_id: _m, category_id: _c, ...row }: ImportPreviewRow): ImportRow {
   return row;
 }
 
@@ -54,6 +56,7 @@ export function ImportPage({ onViewTransactions }: Props) {
   const toast = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [categories, setCategories] = useState<CategoryGroup[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [accountId, setAccountId] = useState<number | null>(null);
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
@@ -64,6 +67,10 @@ export function ImportPage({ onViewTransactions }: Props) {
   const [done, setDone] = useState<{ accountId: number; imported: number; skipped: number } | null>(null);
 
   useEffect(() => {
+    api
+      .listCategories(true)
+      .then(setCategories)
+      .catch(() => setCategories([]));
     api
       .listAccounts(false)
       .then((accts) => {
@@ -154,6 +161,7 @@ export function ImportPage({ onViewTransactions }: Props) {
     return c;
   }, [preview]);
 
+  const catById = useMemo(() => categoryIndex(categories), [categories]);
   const tickedCount = (preview?.rows ?? []).filter((r) => r.status !== "duplicate" && ticked.has(r.line)).length;
   const accountName = accounts?.find((a) => a.id === (done?.accountId ?? accountId))?.name ?? "";
 
@@ -194,6 +202,15 @@ export function ImportPage({ onViewTransactions }: Props) {
           {r.payee && <span className="cell-sub">{r.description}</span>}
         </div>
       ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      width: "140px",
+      render: (r) => {
+        const c = r.category_id === null ? undefined : catById.get(r.category_id);
+        return c ? <span title={`Set by a rule: ${c.group} › ${c.name}`}>{c.name}</span> : <span className="muted">—</span>;
+      },
     },
     { key: "amount", header: "Amount", width: "110px", money: (r) => r.amount },
     {

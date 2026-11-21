@@ -14,6 +14,7 @@ vi.mock("../lib/api", async (orig) => {
       listAccounts: vi.fn(),
       previewBomImport: vi.fn(),
       commitImport: vi.fn(),
+      listCategories: vi.fn(),
     },
   };
 });
@@ -47,6 +48,7 @@ function row(line: number, status: ImportStatus, payee: string | null, amount: n
     import_key: `k${line}`,
     status,
     matched_transaction_id: status === "possible_match" ? 77 : null,
+    category_id: null,
   };
 }
 
@@ -89,6 +91,12 @@ beforeEach(() => {
   m.listAccounts.mockResolvedValue([acct(1, "Bills Offset"), acct(2, "Everyday Offset", "Bank of Melbourne")]);
   m.previewBomImport.mockResolvedValue(preview());
   m.commitImport.mockResolvedValue({ imported: 2, skipped: 0 });
+  m.listCategories.mockResolvedValue([
+    {
+      id: 1, name: "Food", kind: "expense", sort_order: 1, archived_at: null,
+      categories: [{ id: 11, group_id: 1, name: "Takeaway & coffee", sort_order: 1, archived_at: null }],
+    },
+  ]);
 });
 
 describe("ImportPage", () => {
@@ -195,6 +203,19 @@ describe("ImportPage", () => {
     await user.click(await screen.findByRole("button", { name: "Import 1 transaction" }));
     expect(await screen.findByText(/Import failed, nothing was saved: Line 5/)).toBeInTheDocument();
     expect(within(screen.getByRole("table")).getByText("Corner Bakery")).toBeInTheDocument();
+  });
+
+  it("shows the category a rule will set, and doesn't send it back", async () => {
+    const p = preview();
+    p.rows[0] = { ...p.rows[0], category_id: 11 };
+    m.previewBomImport.mockResolvedValue(p);
+    const { user } = renderPage();
+    await screen.findByLabelText("Import into");
+    await upload(user);
+    const bakery = (await screen.findByText("Corner Bakery")).closest("tr")!;
+    expect(within(bakery).getByTitle("Set by a rule: Food › Takeaway & coffee")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Import 1 transaction" }));
+    expect(m.commitImport.mock.calls[0][1][0]).not.toHaveProperty("category_id");
   });
 
   it("asks for an account first when there are none", async () => {

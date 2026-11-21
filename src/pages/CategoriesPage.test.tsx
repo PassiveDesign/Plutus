@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components";
-import { api, CategoryGroup } from "../lib/api";
+import { api, CategoryGroup, Rule } from "../lib/api";
 import { CategoriesPage } from "./CategoriesPage";
 
 vi.mock("../lib/api", async (orig) => {
@@ -19,12 +19,19 @@ vi.mock("../lib/api", async (orig) => {
       createCategory: vi.fn(),
       updateCategory: vi.fn(),
       setCategoryArchived: vi.fn(),
+      listRules: vi.fn(),
+      createRule: vi.fn(),
+      updateRule: vi.fn(),
+      deleteRule: vi.fn(),
+      moveRule: vi.fn(),
+      applyRules: vi.fn(),
     },
   };
 });
 const m = vi.mocked(api);
 
 let tree: CategoryGroup[];
+let rules: Rule[];
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -46,6 +53,26 @@ beforeEach(() => {
     },
   ];
   m.listCategories.mockImplementation(async () => tree);
+  rules = [
+    { id: 1, pattern: "woolworths", match_field: "either", direction: null, category_id: 10, sort_order: 1 },
+    { id: 2, pattern: "acme", match_field: "description", direction: "in", category_id: 1, sort_order: 2 },
+  ];
+  m.listRules.mockImplementation(async () => rules);
+  m.moveRule.mockImplementation(async (id, up) => {
+    const i = rules.findIndex((r) => r.id === id);
+    const j = up ? i - 1 : i + 1;
+    [rules[i], rules[j]] = [rules[j], rules[i]];
+    return [...rules];
+  });
+  m.createRule.mockImplementation(async (input) => {
+    const r = { ...input, id: 9, sort_order: 9 };
+    rules = [...rules, r];
+    return r;
+  });
+  m.deleteRule.mockImplementation(async (id) => {
+    rules = rules.filter((r) => r.id !== id);
+  });
+  m.applyRules.mockResolvedValue(3);
   m.categoryUsage.mockResolvedValue({ "10": 12, "1": 1 });
   m.createCategory.mockImplementation(async (i) => ({ id: 99, group_id: i.group_id, name: i.name, sort_order: 9, archived_at: null }));
   m.updateCategory.mockImplementation(async (id, i) => ({ id, group_id: i.group_id, name: i.name, sort_order: 9, archived_at: null }));
@@ -146,5 +173,59 @@ describe("CategoriesPage", () => {
     await user.click(await screen.findByRole("button", { name: "Archive Groceries" }));
     expect(m.setCategoryArchived).toHaveBeenCalledWith(10, true);
     expect(await screen.findByRole("status")).toHaveTextContent("Groceries archived.");
+  });
+
+  it("lists rules in order in plain English", async () => {
+    renderPage();
+    const section = await screen.findByRole("region", { name: "Rules" });
+    const items = await within(section).findAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("Payee or description contains “woolworths” → Groceries");
+    expect(items[1]).toHaveTextContent("Bank description contains “acme” (money in) → Salary & wages");
+    expect(within(items[0]).getByRole("button", { name: "Move up: woolworths" })).toBeDisabled();
+  });
+
+  it("reorders rules", async () => {
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Move down: woolworths" }));
+    expect(m.moveRule).toHaveBeenCalledWith(1, false);
+    const items = within(screen.getByRole("region", { name: "Rules" })).getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("acme");
+  });
+
+  it("adds a rule with a category; requires a category", async () => {
+    const user = renderPage();
+    const section = await screen.findByRole("region", { name: "Rules" });
+    await user.click(within(section).getByRole("button", { name: "Add rule" }));
+    const dialog = screen.getByRole("dialog", { name: "Add rule" });
+    await user.type(within(dialog).getByLabelText("Contains"), "Shell");
+    await user.click(within(dialog).getByRole("button", { name: "Add rule" }));
+    expect(within(dialog).getByLabelText("Category")).toHaveAccessibleDescription("Choose a category.");
+    expect(m.createRule).not.toHaveBeenCalled();
+    await user.selectOptions(within(dialog).getByLabelText("Money"), "out");
+    await user.selectOptions(within(dialog).getByLabelText("Look in"), "payee");
+    await user.selectOptions(within(dialog).getByLabelText("Category"), "10");
+    await user.click(within(dialog).getByRole("button", { name: "Add rule" }));
+    expect(m.createRule).toHaveBeenCalledWith({ pattern: "Shell", match_field: "payee", direction: "out", category_id: 10 });
+    expect(await screen.findByText(/Payee contains “Shell” \(money out\)/)).toBeInTheDocument();
+  });
+
+  it("deletes a rule after confirming", async () => {
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Edit rule: acme" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit rule" });
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    expect(m.deleteRule).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Really delete?" }));
+    expect(m.deleteRule).toHaveBeenCalledWith(2);
+  });
+
+  it("applies rules to uncategorised and refreshes usage", async () => {
+    const user = renderPage();
+    const section = await screen.findByRole("region", { name: "Rules" });
+    await screen.findAllByText(/woolworths/);
+    m.categoryUsage.mockClear();
+    await user.click(within(section).getByRole("button", { name: "Apply to uncategorised" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Categorised 3 transactions.");
+    expect(m.categoryUsage).toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ import { Archive, ArchiveRestore, Pencil, Plus } from "lucide-react";
 import { Button, useToast } from "../components";
 import { api, Category, CategoryGroup, errorMessage } from "../lib/api";
 import { CategoryForm, GroupForm } from "./CategoryForms";
+import { RulesSection } from "./RulesSection";
 
 type Editing =
   | { kind: "group"; group: CategoryGroup | null }
@@ -91,6 +92,8 @@ export function CategoriesPage() {
           <Plus size={16} aria-hidden="true" /> Add group
         </Button>
       </div>
+
+      <RulesSection groups={groups} onApplied={() => void load()} />
 
       {shown.map((g) => {
         const cats = g.categories.filter((c) => showArchived || c.archived_at === null);

@@ -66,6 +66,8 @@ pub struct PreviewRow {
     pub status: RowStatus,
     /// For `PossibleMatch`: the hand-entered transaction it resembles.
     pub matched_transaction_id: Option<i64>,
+    /// Category a rule would give this row on import.
+    pub category_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -207,6 +209,7 @@ pub fn preview(db: &Database, account_id: i64, rows: Vec<ParsedRow>) -> Result<P
     let current_balance = accounts::balance(db, account_id)?;
 
     let keys = keys(&rows);
+    let rules = crate::rules::active(db)?;
     let mut out = Vec::with_capacity(rows.len());
     let mut new_total = current_balance;
     for (row, import_key) in rows.into_iter().zip(keys) {
@@ -227,10 +230,21 @@ pub fn preview(db: &Database, account_id: i64, rows: Vec<ParsedRow>) -> Result<P
                 .ok_or_else(|| file_error("The amounts in this file are too large."))?;
             RowStatus::New
         };
+        let category_id = (status != RowStatus::Duplicate)
+            .then(|| {
+                crate::rules::category_for(
+                    &rules,
+                    row.payee.as_deref(),
+                    Some(&row.description),
+                    row.amount,
+                )
+            })
+            .flatten();
         out.push(PreviewRow {
             row: ImportRow { row, import_key },
             status,
             matched_transaction_id: matched,
+            category_id,
         });
     }
 
@@ -255,6 +269,7 @@ pub fn commit(db: &Database, account_id: i64, rows: &[ImportRow]) -> Result<Comm
         skipped: 0,
     };
     let mut in_batch = HashSet::new();
+    let rules = crate::rules::active(db)?;
     for r in rows {
         let exists: bool = db.conn().query_row(
             "SELECT EXISTS (SELECT 1 FROM transactions WHERE account_id = ?1 AND import_key = ?2)",
@@ -283,14 +298,20 @@ pub fn commit(db: &Database, account_id: i64, rows: &[ImportRow]) -> Result<Comm
         })?;
         db.conn().execute(
             "INSERT INTO transactions (account_id, date, amount_cents, payee, description, memo, \
-             cleared, import_key) VALUES (?1, ?2, ?3, ?4, ?5, NULL, 1, ?6)",
+             cleared, import_key, category_id) VALUES (?1, ?2, ?3, ?4, ?5, NULL, 1, ?6, ?7)",
             params![
                 account_id,
                 input.date,
                 input.amount.cents(),
                 clean.payee,
                 clean.description,
-                r.import_key
+                r.import_key,
+                crate::rules::category_for(
+                    &rules,
+                    clean.payee.as_deref(),
+                    clean.description.as_deref(),
+                    input.amount
+                )
             ],
         )?;
         result.imported += 1;
@@ -523,6 +544,58 @@ mod tests {
             transactions::count(&db, &TransactionQuery::default()).unwrap(),
             0
         );
+    }
+
+    #[test]
+    fn rules_categorise_imported_rows_and_show_in_preview() {
+        let (_d, db, a) = setup(124_311, "2026-11-01");
+        let cat = |name: &str| {
+            crate::categories::tree(&db, false)
+                .unwrap()
+                .into_iter()
+                .flat_map(|g| g.categories)
+                .find(|c| c.name == name)
+                .unwrap()
+                .id
+        };
+        let (bakery, salary) = (cat("Takeaway & coffee"), cat("Salary & wages"));
+        use crate::rules::{self, Direction, MatchField, RuleInput};
+        rules::create(
+            &db,
+            &RuleInput {
+                pattern: "bakery".into(),
+                match_field: MatchField::Payee,
+                direction: None,
+                category_id: bakery,
+            },
+        )
+        .unwrap();
+        rules::create(
+            &db,
+            &RuleInput {
+                pattern: "acme".into(),
+                match_field: MatchField::Description,
+                direction: Some(Direction::In),
+                category_id: salary,
+            },
+        )
+        .unwrap();
+
+        let p = preview(&db, a, bom::parse(FIXTURE).unwrap()).unwrap();
+        let cats: Vec<_> = p.rows.iter().map(|r| r.category_id).collect();
+        assert_eq!(cats, [Some(bakery), Some(salary), None, None, None]);
+        commit(&db, a, &import_rows(&p, &[RowStatus::New])).unwrap();
+        let txs = transactions::list(&db, &TransactionQuery::default()).unwrap();
+        let by_payee = |p: &str| {
+            txs.iter()
+                .find(|t| t.payee.as_deref() == Some(p))
+                .unwrap()
+                .category_id
+        };
+        assert_eq!(by_payee("Corner Bakery"), Some(bakery));
+        assert_eq!(by_payee("Fresh Mart"), None);
+        let pay = txs.iter().find(|t| t.amount.cents() == 250_000).unwrap();
+        assert_eq!(pay.category_id, Some(salary));
     }
 
     #[test]

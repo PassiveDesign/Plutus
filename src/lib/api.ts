@@ -139,6 +139,8 @@ export type ImportStatus = "new" | "duplicate" | "possible_match" | "before_open
 export type ImportPreviewRow = ImportRow & {
   status: ImportStatus;
   matched_transaction_id: number | null;
+  /** Category a rule will give the row on import. */
+  category_id: number | null;
 };
 
 export type ImportPreview = {
@@ -154,6 +156,20 @@ export type ImportPreview = {
 };
 
 export type ImportResult = { imported: number; skipped: number };
+
+export type MatchField = "payee" | "description" | "either";
+export type RuleDirection = "in" | "out";
+
+/** "If <match_field> contains <pattern> (and money goes <direction>), use
+ *  <category_id>." Tried in order; first match wins; never overwrites. */
+export type RuleInput = {
+  pattern: string;
+  match_field: MatchField;
+  direction: RuleDirection | null;
+  category_id: number;
+};
+
+export type Rule = RuleInput & { id: number; sort_order: number };
 
 export type GroupKind = "income" | "expense";
 
@@ -228,6 +244,13 @@ export const api = {
   /** Send back the preview rows to import (as received, minus `status`). */
   commitImport: (accountId: number, rows: ImportRow[]) =>
     invoke<ImportResult>("commit_import", { accountId, rows }),
+  listRules: () => invoke<Rule[]>("list_rules"),
+  createRule: (input: RuleInput) => invoke<Rule>("create_rule", { input }),
+  updateRule: (id: number, input: RuleInput) => invoke<Rule>("update_rule", { id, input }),
+  deleteRule: (id: number) => invoke<void>("delete_rule", { id }),
+  moveRule: (id: number, up: boolean) => invoke<Rule[]>("move_rule", { id, up }),
+  /** Categorise uncategorised transactions; resolves to how many changed. */
+  applyRules: () => invoke<number>("apply_rules"),
   listCategories: (includeArchived = false) =>
     invoke<CategoryGroup[]>("list_categories", { includeArchived }),
   /** Transactions per category id; unused categories are absent. */

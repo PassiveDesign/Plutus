@@ -191,7 +191,7 @@ pub(crate) fn validate(
 
 /// A category may be assigned if it exists and is active (it and its group);
 /// a transaction may keep the archived category it already has.
-fn check_category(
+pub(crate) fn check_category(
     db: &Database,
     category_id: Option<i64>,
     current: Option<i64>,

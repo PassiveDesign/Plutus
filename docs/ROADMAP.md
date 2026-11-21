@@ -49,7 +49,7 @@ Feature scope is a first draft — edit freely.
 - [x] Category tree (groups + categories), defaults seeded by migration (core + commands)
 - [x] Categories page: add, rename, move, archive groups and categories
 - [x] Assign/bulk-assign categories in the transactions table
-- [ ] Auto-categorisation rules (payee contains / amount matches → category)
+- [x] Auto-categorisation rules (payee/description contains, optional in/out → category; applied on import and on demand)
 
 ## M4 — Import (Bank of Melbourne first)
 
@@ -61,6 +61,10 @@ Feature scope is a first draft — edit freely.
 - [ ] OFX/QFX and QIF import (only if the bank's export menu offers them)
 - [ ] Optional: PDF statement import (for history beyond the online-banking export window)
 - [ ] Open banking (CDR): revisit only if a way to receive data locally without a cloud intermediary becomes available — see DECISIONS
+
+## M3.5 — Release
+
+- [ ] Cut `v0.5.0` (category assignment, Categories page, rules); verify v6 → v7 upgrade
 
 ## M5 — Budgets
 
