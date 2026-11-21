@@ -497,10 +497,7 @@ async fn report(
 #[tauri::command]
 async fn backup_now(state: State<'_, AppState>) -> CmdResult<BackupFile> {
     let dir = state.data_dir.clone();
-    with_vault(&state.vault, move |v| {
-        backup::backup_now(v, &dir, chrono::Local::now())
-    })
-    .await
+    with_vault(&state.vault, move |v| backup::backup_now(v, &dir)).await
 }
 
 /// Every backup on disk, newest first.
@@ -1029,7 +1026,7 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let file = with_vault(&vault, {
                 let data_dir = data_dir.clone();
-                move |v| backup::backup_now(v, &data_dir, chrono::Local::now())
+                move |v| backup::backup_now(v, &data_dir)
             })
             .await
             .unwrap();
@@ -1066,7 +1063,7 @@ mod tests {
         tauri::async_runtime::block_on(async {
             let file = with_vault(&vault, {
                 let data_dir = data_dir.clone();
-                move |v| backup::backup_now(v, &data_dir, chrono::Local::now())
+                move |v| backup::backup_now(v, &data_dir)
             })
             .await
             .unwrap();

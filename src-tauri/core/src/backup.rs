@@ -39,10 +39,16 @@ pub fn dir_in(data_dir: &Path) -> PathBuf {
     data_dir.join(BACKUP_DIR)
 }
 
+/// Copy the database into the backups folder, named with the current time.
+pub fn backup_now(vault: &mut Vault, data_dir: &Path) -> Result<BackupFile, DbError> {
+    backup_at(vault, data_dir, Local::now())
+}
+
 /// Copy the database into the backup folder and prune old copies.
 ///
-/// `now` is passed in so tests (and the command layer) control the file name.
-pub fn backup_now(
+/// `now` is passed in so tests control the file name; the command layer uses
+/// [`backup_now`].
+pub fn backup_at(
     vault: &mut Vault,
     data_dir: &Path,
     now: DateTime<Local>,
@@ -190,7 +196,7 @@ mod tests {
     fn backup_writes_an_encrypted_copy() {
         let (dir, mut vault) = setup();
         add_account(&mut vault, "Everyday");
-        let file = backup_now(&mut vault, dir.path(), when(21, 9)).unwrap();
+        let file = backup_at(&mut vault, dir.path(), when(21, 9)).unwrap();
         assert_eq!(file.name, "plutus-20261121-090000.db");
         assert!(file.bytes > 0);
         let bytes = std::fs::read(&file.path).unwrap();
@@ -205,8 +211,8 @@ mod tests {
     #[test]
     fn backup_is_listed_newest_first() {
         let (dir, mut vault) = setup();
-        backup_now(&mut vault, dir.path(), when(20, 9)).unwrap();
-        backup_now(&mut vault, dir.path(), when(21, 9)).unwrap();
+        backup_at(&mut vault, dir.path(), when(20, 9)).unwrap();
+        backup_at(&mut vault, dir.path(), when(21, 9)).unwrap();
         let files = list(dir.path()).unwrap();
         assert_eq!(files.len(), 2);
         assert_eq!(files[0].name, "plutus-20261121-090000.db");
@@ -223,7 +229,7 @@ mod tests {
     fn prune_keeps_the_newest() {
         let (dir, mut vault) = setup();
         for day in 1..=12 {
-            backup_now(&mut vault, dir.path(), when(day, 9)).unwrap();
+            backup_at(&mut vault, dir.path(), when(day, 9)).unwrap();
         }
         let files = list(dir.path()).unwrap();
         assert_eq!(files.len(), KEEP_BACKUPS);
@@ -235,7 +241,7 @@ mod tests {
     fn restore_brings_back_older_data() {
         let (dir, mut vault) = setup();
         add_account(&mut vault, "Before backup");
-        let file = backup_now(&mut vault, dir.path(), when(21, 9)).unwrap();
+        let file = backup_at(&mut vault, dir.path(), when(21, 9)).unwrap();
         add_account(&mut vault, "After backup");
         let names = |v: &Vault| {
             accounts::list(v.db().unwrap(), false)
@@ -287,7 +293,7 @@ mod tests {
     #[test]
     fn restore_requires_an_unlocked_vault() {
         let (dir, mut vault) = setup();
-        let file = backup_now(&mut vault, dir.path(), when(21, 9)).unwrap();
+        let file = backup_at(&mut vault, dir.path(), when(21, 9)).unwrap();
         vault.lock();
         assert!(matches!(
             restore(&mut vault, dir.path(), &file.name),
