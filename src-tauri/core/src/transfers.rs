@@ -75,6 +75,7 @@ fn legs(
         description: None,
         memo: input.memo.clone(),
         cleared,
+        category_id: None,
     };
     let out = make(
         input.from_account,
@@ -317,6 +318,7 @@ mod tests {
             description: None,
             memo: t.to.memo.clone(),
             cleared: true,
+            category_id: None,
         };
         transactions::update(&db, t.to.id, &leg).unwrap();
 
@@ -384,6 +386,7 @@ mod tests {
             description: None,
             memo: Some("own note".into()),
             cleared: true,
+            category_id: None,
         };
         // Payee, memo and cleared are per leg.
         let ok = transactions::update(&db, t.from.id, &base).unwrap();

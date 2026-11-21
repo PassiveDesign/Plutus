@@ -128,3 +128,9 @@ Short, dated entries. Future sessions follow these without re-deciding.
   The file's balance chain is checked and the projected balance compared
   with the bank's. The UI reads the file as text (`<input type=file>`), so
   no dialog plugin is needed.
+- **2026-11-21 — Category assignment rules.** Only active categories (in
+  active groups) can be newly assigned; a transaction keeps an archived
+  category it already has. Transfer legs never get a category (rejected on
+  edit, skipped in bulk). The TS `TransactionInput.category_id` is required
+  so every edit path (e.g. the Cleared toggle) sends it back instead of
+  silently clearing it. Bulk assign is per page selection.

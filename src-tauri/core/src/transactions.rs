@@ -34,6 +34,9 @@ pub struct TransactionInput {
     pub memo: Option<String>,
     #[serde(default)]
     pub cleared: bool,
+    /// Optional category; never set on transfer legs.
+    #[serde(default)]
+    pub category_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,6 +55,7 @@ pub struct Transaction {
     pub transfer_id: Option<i64>,
     /// For transfer legs: the account on the other side.
     pub transfer_account_id: Option<i64>,
+    pub category_id: Option<i64>,
 }
 
 /// Filter for [`list`] / [`count`]. Dates are inclusive.
@@ -76,7 +80,8 @@ macro_rules! columns {
         "t.id, t.account_id, t.date, t.amount_cents, t.payee, t.description, \
          t.memo, t.cleared, t.created_at, t.updated_at, t.transfer_id, \
          (SELECT o.account_id FROM transactions o \
-          WHERE o.transfer_id = t.transfer_id AND o.id <> t.id) AS transfer_account_id"
+          WHERE o.transfer_id = t.transfer_id AND o.id <> t.id) AS transfer_account_id, \
+         t.category_id"
     };
 }
 
@@ -97,6 +102,7 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Transaction> {
         updated_at: row.get(9)?,
         transfer_id: row.get(10)?,
         transfer_account_id: row.get(11)?,
+        category_id: row.get(12)?,
     })
 }
 
@@ -183,6 +189,43 @@ pub(crate) fn validate(
     })
 }
 
+/// A category may be assigned if it exists and is active (it and its group);
+/// a transaction may keep the archived category it already has.
+fn check_category(
+    db: &Database,
+    category_id: Option<i64>,
+    current: Option<i64>,
+) -> Result<(), DbError> {
+    let Some(id) = category_id else { return Ok(()) };
+    if current == Some(id) {
+        return Ok(());
+    }
+    let row: Option<(String, bool)> = db
+        .conn()
+        .query_row(
+            "SELECT c.name, (c.archived_at IS NULL AND g.archived_at IS NULL) \
+             FROM categories c JOIN category_groups g ON g.id = c.group_id WHERE c.id = ?1",
+            [id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    match row {
+        None => Err(invalid("category_id", "Category not found.")),
+        Some((name, false)) => Err(invalid(
+            "category_id",
+            format!("{name} is archived. Restore it or choose another category."),
+        )),
+        Some(_) => Ok(()),
+    }
+}
+
+fn transfer_category_error() -> DbError {
+    invalid(
+        "category_id",
+        "Transfers between your accounts don't have a category.",
+    )
+}
+
 pub fn get(db: &Database, id: i64) -> Result<Transaction, DbError> {
     db.conn()
         .query_row(&format!("{SELECT} WHERE t.id = ?1"), [id], from_row)
@@ -192,9 +235,10 @@ pub fn get(db: &Database, id: i64) -> Result<Transaction, DbError> {
 
 pub fn add(db: &Database, input: &TransactionInput) -> Result<Transaction, DbError> {
     let c = validate(db, input, None)?;
+    check_category(db, input.category_id, None)?;
     db.conn().execute(
-        "INSERT INTO transactions (account_id, date, amount_cents, payee, description, memo, cleared) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO transactions (account_id, date, amount_cents, payee, description, memo, cleared, \
+         category_id) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
             input.account_id,
             input.date,
@@ -202,7 +246,8 @@ pub fn add(db: &Database, input: &TransactionInput) -> Result<Transaction, DbErr
             c.payee,
             c.description,
             c.memo,
-            input.cleared
+            input.cleared,
+            input.category_id
         ],
     )?;
     get(db, db.conn().last_insert_rowid())
@@ -222,11 +267,15 @@ pub fn update(db: &Database, id: i64, input: &TransactionInput) -> Result<Transa
             "This is part of a transfer. Edit it as a transfer to change the account, date or amount.",
         ));
     }
+    if existing.transfer_id.is_some() && input.category_id.is_some() {
+        return Err(transfer_category_error());
+    }
     let c = validate(db, input, Some(existing.account_id))?;
+    check_category(db, input.category_id, existing.category_id)?;
     db.conn().execute(
         "UPDATE transactions SET account_id = ?1, date = ?2, amount_cents = ?3, payee = ?4, \
-         description = ?5, memo = ?6, cleared = ?7, \
-         updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?8",
+         description = ?5, memo = ?6, cleared = ?7, category_id = ?8, \
+         updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?9",
         params![
             input.account_id,
             input.date,
@@ -235,10 +284,35 @@ pub fn update(db: &Database, id: i64, input: &TransactionInput) -> Result<Transa
             c.description,
             c.memo,
             input.cleared,
+            input.category_id,
             id
         ],
     )?;
     get(db, id)
+}
+
+/// Set (or clear, with `None`) the category of many transactions at once.
+/// Transfer legs are left alone. Returns how many transactions changed.
+pub fn set_category(
+    db: &Database,
+    ids: &[i64],
+    category_id: Option<i64>,
+) -> Result<usize, DbError> {
+    check_category(db, category_id, None)?;
+    let tx = db.conn().unchecked_transaction()?;
+    let mut changed = 0;
+    {
+        let mut stmt = db.conn().prepare(
+            "UPDATE transactions SET category_id = ?1, \
+             updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') \
+             WHERE id = ?2 AND transfer_id IS NULL AND category_id IS NOT ?1",
+        )?;
+        for id in ids {
+            changed += stmt.execute(params![category_id, id])?;
+        }
+    }
+    tx.commit()?;
+    Ok(changed)
 }
 
 /// Delete a transaction. Deleting either leg of a transfer deletes both.
@@ -361,7 +435,7 @@ pub fn list_with_running_balance(
         .query_map(refs.as_slice(), |r| {
             Ok(LedgerRow {
                 transaction: from_row(r)?,
-                running_balance: r.get::<_, Option<i64>>(12)?.map(Money::from_cents),
+                running_balance: r.get::<_, Option<i64>>(13)?.map(Money::from_cents),
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -425,6 +499,7 @@ mod tests {
             description: None,
             memo: None,
             cleared: false,
+            category_id: None,
         }
     }
 
@@ -445,6 +520,7 @@ mod tests {
                 description: Some("WOOLWORTHS 3021 MELBOURNE AU".into()),
                 memo: Some("   ".into()),
                 cleared: true,
+                category_id: None,
                 ..tx(acct, "2026-11-15", -8_745, "")
             },
         )
@@ -544,6 +620,7 @@ mod tests {
             &TransactionInput {
                 memo: Some("with Sam".into()),
                 cleared: true,
+                category_id: None,
                 ..tx(acct, "2026-11-14", -650, "Cafe")
             },
         )
@@ -833,6 +910,152 @@ mod tests {
         assert_eq!(v["amount"], -100);
         assert_eq!(v["running_balance"], 99_900);
         assert!(v.get("transaction").is_none(), "flattened");
+    }
+
+    fn category(db: &Database, group: &str, name: &str) -> i64 {
+        crate::categories::tree(db, true)
+            .unwrap()
+            .into_iter()
+            .find(|g| g.name == group)
+            .unwrap()
+            .categories
+            .into_iter()
+            .find(|c| c.name == name)
+            .unwrap()
+            .id
+    }
+
+    #[test]
+    fn categories_assign_on_add_and_update() {
+        let (_d, db, a) = setup();
+        let groceries = category(&db, "Food", "Groceries");
+        let fuel = category(&db, "Transport", "Fuel");
+        let t = add(
+            &db,
+            &TransactionInput {
+                category_id: Some(groceries),
+                ..tx(a, "2026-11-05", -1_000, "Woolies")
+            },
+        )
+        .unwrap();
+        assert_eq!(t.category_id, Some(groceries));
+        let mut input = TransactionInput {
+            category_id: Some(fuel),
+            ..tx(a, "2026-11-05", -1_000, "Woolies")
+        };
+        assert_eq!(update(&db, t.id, &input).unwrap().category_id, Some(fuel));
+        input.category_id = None;
+        assert_eq!(update(&db, t.id, &input).unwrap().category_id, None);
+
+        assert_eq!(
+            field(
+                add(
+                    &db,
+                    &TransactionInput {
+                        category_id: Some(9_999),
+                        ..tx(a, "2026-11-05", -1, "x")
+                    }
+                )
+                .unwrap_err()
+            ),
+            "category_id"
+        );
+    }
+
+    #[test]
+    fn archived_categories_can_be_kept_but_not_newly_assigned() {
+        let (_d, db, a) = setup();
+        let groceries = category(&db, "Food", "Groceries");
+        let input = TransactionInput {
+            category_id: Some(groceries),
+            ..tx(a, "2026-11-05", -1_000, "Woolies")
+        };
+        let t = add(&db, &input).unwrap();
+        crate::categories::set_archived(&db, groceries, true).unwrap();
+        // Editing other fields keeps the archived category.
+        let edited = update(
+            &db,
+            t.id,
+            &TransactionInput {
+                memo: Some("note".into()),
+                ..input.clone()
+            },
+        )
+        .unwrap();
+        assert_eq!(edited.category_id, Some(groceries));
+        // ...but it can't go on another transaction, singly or in bulk.
+        let other = add(&db, &tx(a, "2026-11-06", -500, "Coles")).unwrap();
+        assert_eq!(
+            field(update(&db, other.id, &input).unwrap_err()),
+            "category_id"
+        );
+        assert_eq!(
+            field(set_category(&db, &[other.id], Some(groceries)).unwrap_err()),
+            "category_id"
+        );
+        // An archived group blocks its categories too.
+        let fuel = category(&db, "Transport", "Fuel");
+        let transport = crate::categories::get(&db, fuel).unwrap().group_id;
+        crate::categories::set_group_archived(&db, transport, true).unwrap();
+        assert_eq!(
+            field(set_category(&db, &[other.id], Some(fuel)).unwrap_err()),
+            "category_id"
+        );
+    }
+
+    #[test]
+    fn bulk_set_category_skips_transfers_and_unchanged_rows() {
+        let (_d, db, a) = setup();
+        let b = account(&db, "Bills", 0, "2026-11-01");
+        let pets = category(&db, "Family & pets", "Pets");
+        let t1 = add(&db, &tx(a, "2026-11-05", -100, "Vet")).unwrap();
+        let t2 = add(&db, &tx(a, "2026-11-06", -200, "Pet food")).unwrap();
+        let xfer = crate::transfers::create(
+            &db,
+            &crate::transfers::TransferInput {
+                from_account: a,
+                to_account: b,
+                date: date("2026-11-07"),
+                amount: Money::from_cents(500),
+                memo: None,
+            },
+        )
+        .unwrap();
+        let n = set_category(
+            &db,
+            &[t1.id, t2.id, xfer.from.id, xfer.to.id, 9_999],
+            Some(pets),
+        )
+        .unwrap();
+        assert_eq!(n, 2);
+        assert_eq!(get(&db, t2.id).unwrap().category_id, Some(pets));
+        assert_eq!(get(&db, xfer.to.id).unwrap().category_id, None);
+        assert_eq!(
+            set_category(&db, &[t1.id, t2.id], Some(pets)).unwrap(),
+            0,
+            "already set"
+        );
+        assert_eq!(set_category(&db, &[t1.id], None).unwrap(), 1);
+        assert_eq!(get(&db, t1.id).unwrap().category_id, None);
+
+        // A transfer leg can't be given a category by editing it either.
+        let leg = get(&db, xfer.from.id).unwrap();
+        let e = update(
+            &db,
+            leg.id,
+            &TransactionInput {
+                account_id: leg.account_id,
+                date: leg.date,
+                amount: leg.amount,
+                payee: leg.payee.clone(),
+                description: None,
+                memo: None,
+                cleared: false,
+                category_id: Some(pets),
+            },
+        )
+        .unwrap_err();
+        assert_eq!(field(e), "category_id");
     }
 
     #[test]

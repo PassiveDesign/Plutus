@@ -794,3 +794,56 @@ button:disabled {
   color: inherit;
   border: 1px solid var(--warning-border);
 }
+
+/* ---- Bulk actions ---- */
+
+.bulk-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--accent-soft, var(--hover));
+}
+
+.bulk-bar .field {
+  min-width: 220px;
+}
+
+.bulk-count {
+  font-weight: 600;
+  line-height: 2.75rem;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Transactions: fixed layout so Payee gets the leftover width; long bank
+   descriptions are cut to one line (full text in the tooltip/editor). */
+.transactions .data-table {
+  table-layout: fixed;
+}
+
+.transactions .data-table .cell-stack {
+  min-width: 0;
+}
+
+.transactions .data-table .cell-title,
+.transactions .data-table .cell-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.transactions .data-table th,
+.transactions .data-table td {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.transactions .data-table th:first-child,
+.transactions .data-table td:first-child {
+  padding-left: 1rem;
+}

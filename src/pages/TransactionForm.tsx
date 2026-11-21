@@ -1,8 +1,10 @@
 import { FormEvent, useState } from "react";
 import { Button, Modal, SelectField, TextField, useToast } from "../components";
+import { CategorySelect } from "./CategorySelect";
 import {
   Account,
   api,
+  CategoryGroup,
   errorMessage,
   splitError,
   Transaction,
@@ -21,6 +23,8 @@ type Props = {
   transaction: Transaction | null;
   /** Every account (archived included); only active ones are offered. */
   accounts: Account[];
+  /** Full category tree (archived included). */
+  categories: CategoryGroup[];
   /** Preselected account for new transactions (e.g. the current filter). */
   defaultAccountId: number | null;
   onClose: () => void;
@@ -30,11 +34,11 @@ type Props = {
 /** Backend field -> form field. Transfer legs report `from_account` /
  *  `to_account`; the "from" side uses the main Account picker. */
 const FIELD_ALIASES: Record<string, string> = { from_account: "account_id" };
-const FIELDS = new Set(["account_id", "to_account", "date", "amount", "payee", "description", "memo"]);
+const FIELDS = new Set(["account_id", "to_account", "date", "amount", "payee", "description", "memo", "category_id"]);
 
 const blank = (s: string): string | null => (s.trim() === "" ? null : s);
 
-export function TransactionForm({ transaction: tx, accounts, defaultAccountId, onClose, onDone }: Props) {
+export function TransactionForm({ transaction: tx, accounts, categories, defaultAccountId, onClose, onDone }: Props) {
   const toast = useToast();
   const isTransfer = tx?.transfer_id != null;
 
@@ -63,6 +67,7 @@ export function TransactionForm({ transaction: tx, accounts, defaultAccountId, o
   const [description, setDescription] = useState(tx?.description ?? "");
   const [memo, setMemo] = useState(tx?.memo ?? "");
   const [cleared, setCleared] = useState(tx?.cleared ?? false);
+  const [categoryId, setCategoryId] = useState<number | null>(tx?.category_id ?? null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -124,6 +129,7 @@ export function TransactionForm({ transaction: tx, accounts, defaultAccountId, o
           description: blank(description),
           memo: blank(memo),
           cleared,
+          category_id: categoryId,
         };
         if (tx) await api.updateTransaction(tx.id, input);
         else await api.addTransaction(input);
@@ -274,6 +280,15 @@ export function TransactionForm({ transaction: tx, accounts, defaultAccountId, o
               hint="As it appears on your statement. Optional if you enter a payee."
             />
           </>
+        )}
+        {!transfer && (
+          <CategorySelect
+            groups={categories}
+            value={categoryId}
+            onChange={setCategoryId}
+            keep={tx?.category_id ?? null}
+            error={errors.category_id}
+          />
         )}
         <TextField label="Memo" value={memo} onChange={(e) => setMemo(e.currentTarget.value)} error={errors.memo} />
         {transfer ? (

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeftRight, Plus } from "lucide-react";
 import { Button, DataTable, SelectField, TextField, useToast } from "../components";
 import type { Column } from "../components";
-import { Account, api, errorMessage, LedgerRow, Transaction, TransactionQuery } from "../lib/api";
+import { Account, api, CategoryGroup, errorMessage, LedgerRow, Transaction, TransactionQuery } from "../lib/api";
+import { categoryIndex, CategorySelect } from "./CategorySelect";
 import { formatDate } from "../lib/dates";
 import { formatCents } from "../lib/money";
 import { TransactionForm, TxVerb } from "./TransactionForm";
@@ -25,6 +26,10 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
   const [total, setTotal] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editing, setEditing] = useState<Transaction | "new" | null>(null);
+  const [categories, setCategories] = useState<CategoryGroup[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState<number | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const filter = useMemo<TransactionQuery>(
     () => ({ account_id: accountId, from: from || null, to: to || null }),
@@ -33,12 +38,15 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
 
   const load = useCallback(async () => {
     try {
-      const [accts, txs, count] = await Promise.all([
+      const [accts, txs, count, cats] = await Promise.all([
         api.listAccounts(true),
         api.listTransactions({ ...filter, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
         api.countTransactions(filter),
+        api.listCategories(true),
       ]);
       setAccounts(accts);
+      setCategories(cats);
+      setSelected(new Set());
       setRows(txs);
       setTotal(count);
       setLoadError(null);
@@ -71,10 +79,38 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
         description: t.description,
         memo: t.memo,
         cleared: !t.cleared,
+        category_id: t.category_id,
       });
       void load();
     } catch (e) {
       toast.error(`Couldn't update: ${errorMessage(e)}`);
+    }
+  }
+
+  const catById = useMemo(() => categoryIndex(categories), [categories]);
+  const selectable = (rows ?? []).filter((t) => t.transfer_id === null);
+
+  function toggleSelected(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function applyBulkCategory() {
+    if (selected.size === 0 || bulkBusy) return;
+    setBulkBusy(true);
+    try {
+      const n = await api.setTransactionCategory([...selected], bulkCategory);
+      const label = bulkCategory === null ? "Uncategorised" : (catById.get(bulkCategory)?.name ?? "category");
+      toast.success(`${n} transaction${n === 1 ? "" : "s"} set to ${label}.`);
+      await load();
+    } catch (e) {
+      toast.error(`Couldn't set the category: ${errorMessage(e)}`);
+    } finally {
+      setBulkBusy(false);
     }
   }
 
@@ -85,7 +121,24 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
   }
 
   const columns: Column<LedgerRow>[] = [
-    { key: "date", header: "Date", width: "120px", render: (t) => formatDate(t.date) },
+    {
+      key: "select",
+      header: "",
+      width: "36px",
+      render: (t) => (
+        <input
+          type="checkbox"
+          aria-label={`Select ${t.payee ?? t.description ?? ""}`}
+          checked={selected.has(t.id)}
+          disabled={t.transfer_id !== null}
+          title={t.transfer_id !== null ? "Transfers don't have a category" : undefined}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          onChange={() => toggleSelected(t.id)}
+        />
+      ),
+    },
+    { key: "date", header: "Date", width: "108px", render: (t) => <span className="nowrap">{formatDate(t.date)}</span> },
     {
       key: "payee",
       header: "Payee",
@@ -94,9 +147,29 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
         const sub = [t.payee ? t.description : null, t.memo].filter(Boolean).join(" · ");
         return (
           <div className="cell-stack">
-            <span className="cell-title">{title}</span>
-            {sub && <span className="cell-sub">{sub}</span>}
+            <span className="cell-title" title={title}>
+              {title}
+            </span>
+            {sub && (
+              <span className="cell-sub" title={sub}>
+                {sub}
+              </span>
+            )}
           </div>
+        );
+      },
+    },
+    {
+      key: "category",
+      header: "Category",
+      width: "150px",
+      render: (t) => {
+        if (t.transfer_id !== null) return <span className="muted">Transfer</span>;
+        const c = t.category_id === null ? null : catById.get(t.category_id);
+        return c ? (
+          <span title={`${c.group} › ${c.name}`}>{c.name}</span>
+        ) : (
+          <span className="muted">—</span>
         );
       },
     },
@@ -105,18 +178,18 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
           {
             key: "account",
             header: "Account",
-            width: "180px",
+            width: "140px",
             render: (t: Transaction) => byId.get(t.account_id)?.name ?? "—",
           },
         ]
       : []),
-    { key: "amount", header: "Amount", width: "140px", money: (t) => t.amount },
+    { key: "amount", header: "Amount", width: "112px", money: (t) => t.amount },
     ...(accountId !== null
       ? [
           {
             key: "balance",
             header: "Balance",
-            width: "150px",
+            width: "124px",
             align: "right" as const,
             render: (t: LedgerRow) =>
               t.running_balance === null ? (
@@ -134,7 +207,7 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
     {
       key: "cleared",
       header: "Cleared",
-      width: "80px",
+      width: "76px",
       align: "right",
       render: (t) => (
         <input
@@ -198,6 +271,30 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
         </Button>
       </div>
 
+      {selected.size > 0 && (
+        <div className="bulk-bar" role="region" aria-label="Selected transactions">
+          <span className="bulk-count">{selected.size} selected</span>
+          {selected.size < selectable.length && (
+            <Button variant="ghost" onClick={() => setSelected(new Set(selectable.map((t) => t.id)))}>
+              Select all {selectable.length} on this page
+            </Button>
+          )}
+          <CategorySelect
+            label="Set category"
+            groups={categories}
+            value={bulkCategory}
+            onChange={setBulkCategory}
+            disabled={bulkBusy}
+          />
+          <Button onClick={() => void applyBulkCategory()} busy={bulkBusy} busyLabel="Applying…">
+            Apply
+          </Button>
+          <Button variant="secondary" onClick={() => setSelected(new Set())} disabled={bulkBusy}>
+            Clear selection
+          </Button>
+        </div>
+      )}
+
       {activeAccounts.length === 0 && total === 0 ? (
         <div className="table-empty empty-cta">
           <ArrowLeftRight size={36} strokeWidth={1.5} aria-hidden="true" />
@@ -232,6 +329,7 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
         <TransactionForm
           transaction={editing === "new" ? null : editing}
           accounts={accounts}
+          categories={categories}
           defaultAccountId={accountId}
           onClose={() => setEditing(null)}
           onDone={onDone}

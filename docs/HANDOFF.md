@@ -98,6 +98,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `FileUp`), reads the file with `file.text()`, previews, ticks `new` rows,
   duplicates disabled, balance warnings, commit + "View in Transactions"
   (AppShell passes `initialAccountId` to TransactionsPage). 111 UI tests.
+- **v0.4.0 published** (owner: real BoM import "All good").
+- **Category assignment done:** `Transaction.category_id` /
+  `TransactionInput.category_id`, `transactions::set_category` (bulk, skips
+  transfers), command `set_transaction_category`; `src/pages/CategorySelect.tsx`
+  (grouped picker + `categoryIndex`), category picker in TransactionForm,
+  Category column, row selection + bulk bar on TransactionsPage (table now
+  `table-layout: fixed`, payee/description cut to one line). 99 core, 115 UI.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -143,18 +150,16 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. **v0.4.0** is tagged once CI for the import screen is green (version
-   already bumped in the same push). Owner smoke test: install over v0.3.0
-   → unlock (v4 → v6 upgrade) → Import a real BoM export into the right
-   account → check statuses, balance check vs the bank, import → view in
-   Transactions (running balance should end at the bank's balance if the
-   opening balance/date are right) → import the same file again (all
-   "Already imported") → restart. If good: publish, tick M4.5. Ask the
-   owner for any rows that parsed oddly (descriptions only, no amounts).
-2. Then **M3 — Assign categories** (plan: `Transaction.category_id` in
-   `columns!()` — running-balance index moves to 14 since `import_key`
-   isn't selected; `TransactionInput.category_id`; bulk
-   `set_transaction_category`; picker + column + bulk action in the UI).
+**M3 — Categories page** (ROADMAP M3 item 2): new sidebar page
+"Categories" (icon `Tags`, after Import) or a Settings section — prefer a
+page. List groups (income first) with their categories; add group (name +
+income/expense), add category to a group, rename, move category to another
+group, archive/restore (show archived toggle). Commands already exist
+(`list_categories`, `create_category_group`, `update_category_group`,
+`set_category_group_archived`, `create_category`, `update_category`,
+`set_category_archived`). Show a count of transactions per category if
+cheap (would need a new `category_usage` command — optional).
+Then **auto-categorisation rules** (M3 item 3), then v0.5.0.
 
 ## Open questions for the owner
 

@@ -273,6 +273,7 @@ pub fn commit(db: &Database, account_id: i64, rows: &[ImportRow]) -> Result<Comm
             description: Some(r.row.description.clone()),
             memo: None,
             cleared: true,
+            category_id: None,
         };
         let clean = transactions::validate(db, &input, None).map_err(|e| match e {
             DbError::Invalid { field, message } if field != "account_id" => {
@@ -442,6 +443,7 @@ mod tests {
                 description: None,
                 memo: None,
                 cleared: false,
+                category_id: None,
             },
         )
         .unwrap();

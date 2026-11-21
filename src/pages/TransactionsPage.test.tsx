@@ -5,6 +5,7 @@ import { ToastProvider } from "../components";
 import {
   Account,
   api,
+  CategoryGroup,
   LedgerRow,
   Transaction,
   TransactionInput,
@@ -27,6 +28,8 @@ vi.mock("../lib/api", async (orig) => {
       deleteTransaction: vi.fn(),
       createTransfer: vi.fn(),
       updateTransfer: vi.fn(),
+      setTransactionCategory: vi.fn(),
+      listCategories: vi.fn(),
       parseMoney: vi.fn(),
     },
   };
@@ -51,6 +54,21 @@ function acct(id: number, name: string, over: Partial<Account> = {}): Account {
   };
 }
 
+const CATEGORIES: CategoryGroup[] = [
+  {
+    id: 1, name: "Food", kind: "expense", sort_order: 1, archived_at: null,
+    categories: [
+      { id: 10, group_id: 1, name: "Groceries", sort_order: 1, archived_at: null },
+      { id: 11, group_id: 1, name: "Eating out", sort_order: 2, archived_at: null },
+      { id: 12, group_id: 1, name: "Old snacks", sort_order: 3, archived_at: "z" },
+    ],
+  },
+  {
+    id: 2, name: "Transport", kind: "expense", sort_order: 2, archived_at: null,
+    categories: [{ id: 20, group_id: 2, name: "Fuel", sort_order: 1, archived_at: null }],
+  },
+];
+
 let accounts: Account[];
 let txs: Transaction[];
 let nextId: number;
@@ -69,6 +87,7 @@ function tx(account_id: number, date: string, amount: number, payee: string | nu
     updated_at: null,
     transfer_id: null,
     transfer_account_id: null,
+    category_id: null,
     ...over,
   };
 }
@@ -104,6 +123,17 @@ beforeEach(() => {
   accounts = [acct(1, "Everyday Offset"), acct(2, "Bills Offset"), acct(3, "Old Saver", { archived_at: "y" })];
   txs = [];
   m.listAccounts.mockImplementation(async () => accounts);
+  m.listCategories.mockImplementation(async () => CATEGORIES);
+  m.setTransactionCategory.mockImplementation(async (ids: number[], cat: number | null) => {
+    let n = 0;
+    for (const t of txs) {
+      if (ids.includes(t.id) && t.transfer_id === null && t.category_id !== cat) {
+        t.category_id = cat;
+        n += 1;
+      }
+    }
+    return n;
+  });
   m.listTransactions.mockImplementation(async (q: TransactionQuery = {}) => {
     const off = q.offset ?? 0;
     const running = q.account_id == null ? new Map<number, number>() : runningFor(q.account_id);
@@ -444,6 +474,76 @@ describe("TransactionsPage", () => {
     expect(await screen.findByText("In everyday")).toBeInTheDocument();
     expect(screen.queryByText("In bills")).toBeNull();
     expect(screen.getByLabelText("Account")).toHaveValue("1");
+  });
+
+  it("shows categories; transfers say Transfer", async () => {
+    const out = tx(1, "2026-11-12", -100, "Transfer to Bills Offset", { transfer_account_id: 2 });
+    out.transfer_id = out.id;
+    txs = [tx(1, "2026-11-10", -5_000, "Woolworths", { category_id: 10 }), tx(1, "2026-11-11", -500, "Mystery"), out];
+    renderPage();
+    await screen.findByText("Woolworths");
+    const [xfer, mystery, woolies] = bodyRows();
+    expect(within(woolies).getByTitle("Food › Groceries")).toHaveTextContent("Groceries");
+    expect(mystery).toHaveTextContent("—");
+    expect(xfer).toHaveTextContent("Transfer");
+  });
+
+  it("the form picks a category from active ones, grouped", async () => {
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Add transaction" }));
+    const dialog = screen.getByRole("dialog");
+    const select = within(dialog).getByLabelText("Category");
+    expect(select).toHaveValue("");
+    expect(within(select).getByRole("group", { name: "Food" })).toBeInTheDocument();
+    expect(within(select).queryByText(/Old snacks/)).toBeNull();
+    await user.selectOptions(select, "20");
+    await user.type(within(dialog).getByLabelText("Amount"), "60");
+    await user.type(within(dialog).getByLabelText("Payee"), "Shell");
+    await user.click(within(dialog).getByRole("button", { name: "Add transaction" }));
+    expect(m.addTransaction).toHaveBeenCalledWith(expect.objectContaining({ payee: "Shell", category_id: 20 }));
+
+    await user.click(screen.getByRole("button", { name: "Add transaction" }));
+    await user.click(within(screen.getByRole("dialog")).getByLabelText("Transfer"));
+    expect(within(screen.getByRole("dialog")).queryByLabelText("Category")).toBeNull();
+  });
+
+  it("editing keeps an archived category; toggling cleared keeps the category", async () => {
+    txs = [tx(1, "2026-11-10", -300, "Chips", { category_id: 12 })];
+    const user = renderPage();
+    await screen.findByText("Chips");
+    await user.click(screen.getByRole("checkbox", { name: "Cleared: Chips" }));
+    expect(m.updateTransaction).toHaveBeenCalledWith(txs[0].id, expect.objectContaining({ cleared: true, category_id: 12 }));
+
+    await user.click(screen.getByText("Chips"));
+    const select = within(screen.getByRole("dialog")).getByLabelText("Category");
+    expect(select).toHaveValue("12");
+    expect(within(select).getByText("Old snacks (archived)")).toBeInTheDocument();
+  });
+
+  it("bulk-sets a category on selected rows; transfers can't be selected", async () => {
+    const out = tx(1, "2026-11-12", -100, "Transfer to Bills Offset", { transfer_account_id: 2 });
+    out.transfer_id = out.id;
+    txs = [tx(1, "2026-11-10", -5_000, "Woolworths"), tx(1, "2026-11-11", -6_000, "Coles"), tx(1, "2026-11-09", -100, "Cafe"), out];
+    const user = renderPage();
+    await screen.findByText("Woolworths");
+    expect(screen.queryByRole("region", { name: "Selected transactions" })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Select Transfer to Bills Offset" })).toBeDisabled();
+
+    await user.click(screen.getByRole("checkbox", { name: "Select Woolworths" }));
+    const bar = screen.getByRole("region", { name: "Selected transactions" });
+    expect(bar).toHaveTextContent("1 selected");
+    await user.click(within(bar).getByRole("button", { name: "Select all 3 on this page" }));
+    expect(bar).toHaveTextContent("3 selected");
+    await user.click(screen.getByRole("checkbox", { name: "Select Cafe" })); // untick one
+    await user.selectOptions(within(bar).getByLabelText("Set category"), "10");
+    await user.click(within(bar).getByRole("button", { name: "Apply" }));
+    expect(m.setTransactionCategory).toHaveBeenCalledWith(expect.arrayContaining([txs[0].id, txs[1].id]), 10);
+    expect(m.setTransactionCategory.mock.calls[0][0]).toHaveLength(2);
+    expect(await screen.findByRole("status")).toHaveTextContent("2 transactions set to Groceries.");
+    // Selection clears after reloading; rows show the new category.
+    await screen.findAllByTitle("Food › Groceries");
+    expect(screen.queryByRole("region", { name: "Selected transactions" })).toBeNull();
+    expect(screen.getAllByTitle("Food › Groceries")).toHaveLength(2);
   });
 
   it("load failure shows a retry", async () => {

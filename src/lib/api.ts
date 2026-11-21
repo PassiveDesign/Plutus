@@ -93,6 +93,9 @@ export type TransactionInput = {
   description: string | null;
   memo: string | null;
   cleared: boolean;
+  /** Always null on transfer legs. Send the current value back on edits,
+   *  or the category is cleared. */
+  category_id: number | null;
 };
 
 export type Transaction = TransactionInput & {
@@ -238,6 +241,9 @@ export const api = {
     invoke<Category>("update_category", { id, input }),
   setCategoryArchived: (id: number, archived: boolean) =>
     invoke<Category>("set_category_archived", { id, archived }),
+  /** Transfer legs are skipped; resolves to how many changed. */
+  setTransactionCategory: (ids: number[], categoryId: number | null) =>
+    invoke<number>("set_transaction_category", { ids, categoryId }),
   createTransfer: (input: TransferInput) => invoke<Transfer>("create_transfer", { input }),
   updateTransfer: (id: number, input: TransferInput) =>
     invoke<Transfer>("update_transfer", { id, input }),

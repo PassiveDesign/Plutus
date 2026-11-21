@@ -233,6 +233,20 @@ async fn delete_transaction(state: State<'_, AppState>, id: i64) -> CmdResult<()
     with_db(&state.vault, move |db| transactions::delete(db, id)).await
 }
 
+/// Set or clear (`categoryId: null`) the category of many transactions.
+/// Transfer legs are skipped. Returns how many changed.
+#[tauri::command]
+async fn set_transaction_category(
+    state: State<'_, AppState>,
+    ids: Vec<i64>,
+    category_id: Option<i64>,
+) -> CmdResult<usize> {
+    with_db(&state.vault, move |db| {
+        transactions::set_category(db, &ids, category_id)
+    })
+    .await
+}
+
 /// Move money between two accounts (creates both legs).
 #[tauri::command]
 async fn create_transfer(state: State<'_, AppState>, input: TransferInput) -> CmdResult<Transfer> {
@@ -383,6 +397,7 @@ pub fn run() {
             add_transaction,
             update_transaction,
             delete_transaction,
+            set_transaction_category,
             create_transfer,
             update_transfer,
             list_categories,
@@ -647,6 +662,47 @@ mod tests {
                 .await
                 .unwrap_err();
             assert_eq!((e.code, e.field), ("invalid", Some("file")));
+        });
+    }
+
+    #[test]
+    fn set_transaction_category_command_counts_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let a = with_db(&vault, |db| accounts::create(db, &input("Everyday")))
+                .await
+                .unwrap();
+            let t_in: TransactionInput = serde_json::from_value(serde_json::json!({
+                "account_id": a.id, "date": "2026-11-05", "amount": -500, "payee": "Vet"
+            }))
+            .unwrap();
+            let t = with_db(&vault, move |db| transactions::add(db, &t_in))
+                .await
+                .unwrap();
+            assert!(serde_json::to_value(&t).unwrap()["category_id"].is_null());
+            let pets = with_db(&vault, |db| categories::tree(db, false))
+                .await
+                .unwrap()
+                .into_iter()
+                .flat_map(|g| g.categories)
+                .find(|c| c.name == "Pets")
+                .unwrap()
+                .id;
+            let id = t.id;
+            let n = with_db(&vault, move |db| {
+                transactions::set_category(db, &[id], Some(pets))
+            })
+            .await
+            .unwrap();
+            assert_eq!(n, 1);
+            let e = with_db(&vault, move |db| {
+                transactions::set_category(db, &[id], Some(99_999))
+            })
+            .await
+            .unwrap_err();
+            assert_eq!(e.field, Some("category_id"));
         });
     }
 }

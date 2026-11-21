@@ -42,13 +42,13 @@ Feature scope is a first draft — edit freely.
 
 ## M4.5 — Release
 
-- [ ] Cut `v0.4.0` (categories schema, Bank of Melbourne import); owner imports a real export; verify v4 → v6 upgrade
+- [x] Cut `v0.4.0` (categories schema, Bank of Melbourne import); owner imports a real export; verify v4 → v6 upgrade
 
 ## M3 — Categories & rules
 
 - [x] Category tree (groups + categories), defaults seeded by migration (core + commands)
 - [ ] Categories page: add, rename, move, archive groups and categories
-- [ ] Assign/bulk-assign categories in the transactions table
+- [x] Assign/bulk-assign categories in the transactions table
 - [ ] Auto-categorisation rules (payee contains / amount matches → category)
 
 ## M4 — Import (Bank of Melbourne first)
