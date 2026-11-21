@@ -2,9 +2,22 @@
 
 Rewritten at the end of every session. Read after AGENTS.md.
 
-**Last updated:** 2026-11-20
+**Last updated:** 2026-11-21
 
 ## Current state
+
+### Newest first
+
+- **M7 backup/restore done (local commit only, not pushed).** `plutus-core::backup`
+  (`backup_now`, `list`, `prune`, `restore`), `Vault::copy_to` / `Vault::replace_with`
+  with the password kept in memory while unlocked. Commands `backup_now`,
+  `list_backups`, `backup_folder`, `restore_backup`. Settings has a Backup
+  section: "Back up now", the folder path, a list of copies (newest first) and
+  Restore with a "Replace all current data?" confirmation. 125 core tests
+  (8 new), 153 UI tests (7 new); checked in the browser preview.
+- **GitHub API usage limit hit 2026-11-21.** Commits are being made locally on
+  `feat/backup` in `~/projects/Plutus-wt-bak` and pushed when the limit clears.
+  v0.6.0 CI/release already finished (draft release, 5 assets) before the limit.
 
 - Scaffold + CI green on Windows/Linux.
 - **v0.1.0 tagged; Release workflow succeeded on first run** (run 44712658224).
@@ -187,18 +200,14 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. **v0.6.0** is tagged automatically if CI passes. Owner smoke test:
-   install over v0.5.0 → unlock (v7 → v9) → Budgets: set a few, edit
-   inline, rollover on one, switch months → Dashboard figures look right
-   (net worth vs bank/loan statements) → Reports: each period, charts,
-   category list → restart. If good: publish, tick M6.5.
-2. Then ask the owner: **M5b valuations** (super/shares/property values
-   over time, so net worth includes them) or **M7 data safety** (backup /
-   restore, CSV export, auto-lock) next. Recommend M7 backup first: the
-   only copy of their data is one encrypted file.
-   Small follow-ups noted: category filter on Transactions (click a
-   category in Reports → its transactions); "Create rule…" from the bulk
-   bar.
+1. **Push `feat/backup` to `main` when GitHub allows**, then let CI run
+   (expect 125 core, 17 shell, 153 UI tests). If green, tag v0.7.0 and let the
+   Release workflow build installers.
+2. Owner smoke test of v0.6.0 (dashboard, budgets, reports) and v0.7.0
+   (back up, restore, check the data comes back).
+3. Then the rest of M7: CSV export of transactions, optional auto-lock after
+   inactivity. Ask the owner which first.
+
 
 ## Open questions for the owner
 

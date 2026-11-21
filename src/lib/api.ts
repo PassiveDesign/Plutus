@@ -201,6 +201,14 @@ export type MonthBudget = {
   income: number;
 };
 
+export type BackupFile = {
+  name: string;
+  path: string;
+  bytes: number;
+  /** RFC 3339, local time. */
+  modified: string;
+};
+
 export type Dashboard = {
   month: Month;
   /** Cents. `debts` is negative. */
@@ -342,6 +350,13 @@ export const api = {
   setTransactionCategory: (ids: number[], categoryId: number | null) =>
     invoke<number>("set_transaction_category", { ids, categoryId }),
   createTransfer: (input: TransferInput) => invoke<Transfer>("create_transfer", { input }),
+  /** Copy the encrypted database into the backups folder. */
+  backupNow: () => invoke<BackupFile>("backup_now"),
+  listBackups: () => invoke<BackupFile[]>("list_backups"),
+  /** Folder holding the copies, for display. */
+  backupFolder: () => invoke<string>("backup_folder"),
+  /** Replace all data with the named copy. The app stays unlocked. */
+  restoreBackup: (name: string) => invoke<void>("restore_backup", { name }),
   updateTransfer: (id: number, input: TransferInput) =>
     invoke<Transfer>("update_transfer", { id, input }),
 };

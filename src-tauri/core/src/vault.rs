@@ -37,6 +37,10 @@ impl VaultStatus {
 pub struct Vault {
     path: PathBuf,
     db: Option<Database>,
+    /// The password of the open database, kept only while unlocked so the app
+    /// can close and reopen the file for a backup or a restore without asking
+    /// the owner to type it again. Cleared on `lock`.
+    password: Option<String>,
 }
 
 impl Vault {
@@ -45,6 +49,7 @@ impl Vault {
         Self {
             path: path.into(),
             db: None,
+            password: None,
         }
     }
 
@@ -67,6 +72,7 @@ impl Vault {
         check_new_password(password)?;
         let db = Database::create(&self.path, password)?;
         self.db = Some(db);
+        self.password = Some(password.to_string());
         Ok(())
     }
 
@@ -78,12 +84,14 @@ impl Vault {
         }
         let db = Database::open(&self.path, password)?;
         self.db = Some(db);
+        self.password = Some(password.to_string());
         Ok(())
     }
 
     /// Close the database. Safe to call when already locked.
     pub fn lock(&mut self) {
         self.db = None;
+        self.password = None;
     }
 
     /// Change the password. Requires the vault to be unlocked and the current
@@ -95,7 +103,82 @@ impl Vault {
             return Err(DbError::WrongPassword);
         }
         check_new_password(new)?;
-        db.change_password(new)
+        db.change_password(new)?;
+        self.password = Some(new.to_string());
+        Ok(())
+    }
+
+    /// Copy the database file to `dest`, reopening the vault afterwards.
+    ///
+    /// The connection is closed first so the WAL is checkpointed and the file
+    /// on disk is a complete, self-contained snapshot. Returns the number of
+    /// bytes written.
+    pub fn copy_to(&mut self, dest: &Path) -> Result<u64, DbError> {
+        let password = self.password.clone().ok_or(DbError::Locked)?;
+        let db = self.db.take().ok_or(DbError::Locked)?;
+        drop(db);
+        let copied = std::fs::copy(&self.path, dest);
+        match (copied, Database::open(&self.path, &password)) {
+            (Ok(bytes), Ok(db)) => {
+                self.db = Some(db);
+                Ok(bytes)
+            }
+            (Err(e), Ok(db)) => {
+                self.db = Some(db);
+                Err(DbError::Io(e))
+            }
+            (_, Err(e)) => {
+                self.password = None;
+                Err(e)
+            }
+        }
+    }
+
+    /// Replace the database file with `src` (a backup), reopening afterwards.
+    ///
+    /// The candidate is first copied next to the database and opened there, so
+    /// a wrong password or a foreign file is rejected without touching the
+    /// current data. The old file is kept beside the database as
+    /// `<db>.before-restore` and restored if the swap fails.
+    pub fn replace_with(&mut self, src: &Path) -> Result<(), DbError> {
+        let password = self.password.clone().ok_or(DbError::Locked)?;
+        if !src.is_file() {
+            return Err(DbError::NotFound(src.to_path_buf()));
+        }
+        let staging = self.path.with_extension("restore-new");
+        let _ = std::fs::remove_file(&staging);
+        std::fs::copy(src, &staging)?;
+        if let Err(e) = Database::open(&staging, &password) {
+            let _ = std::fs::remove_file(&staging);
+            return Err(e);
+        }
+        let old = self.path.with_extension("before-restore");
+        let _ = std::fs::remove_file(&old);
+        self.db = None;
+        if let Err(e) = std::fs::rename(&self.path, &old) {
+            let _ = std::fs::remove_file(&staging);
+            self.db = Database::open(&self.path, &password).ok();
+            return Err(DbError::Io(e));
+        }
+        remove_sidecars(&self.path);
+        if let Err(e) = std::fs::rename(&staging, &self.path) {
+            let _ = std::fs::rename(&old, &self.path);
+            self.db = Database::open(&self.path, &password).ok();
+            return Err(DbError::Io(e));
+        }
+        match Database::open(&self.path, &password) {
+            Ok(db) => {
+                self.db = Some(db);
+                Ok(())
+            }
+            Err(e) => {
+                let _ = std::fs::remove_file(&self.path);
+                remove_sidecars(&self.path);
+                let _ = std::fs::rename(&old, &self.path);
+                self.db = Database::open(&self.path, &password).ok();
+                Err(e)
+            }
+        }
     }
 
     /// The open database, or [`DbError::Locked`].
@@ -112,6 +195,13 @@ pub fn check_new_password(password: &str) -> Result<(), DbError> {
         })
     } else {
         Ok(())
+    }
+}
+
+/// Remove the WAL and shared-memory files that sit beside a database file.
+fn remove_sidecars(path: &Path) {
+    for suffix in ["-wal", "-shm"] {
+        let _ = std::fs::remove_file(format!("{}{suffix}", path.display()));
     }
 }
 

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components";
@@ -7,12 +7,37 @@ import { SettingsPage } from "./SettingsPage";
 
 vi.mock("../lib/api", async (orig) => {
   const real = await orig<typeof import("../lib/api")>();
-  return { ...real, api: { ...real.api, changePassword: vi.fn() } };
+  return {
+    ...real,
+    api: {
+      ...real.api,
+      changePassword: vi.fn(),
+      backupFolder: vi.fn(),
+      listBackups: vi.fn(),
+      backupNow: vi.fn(),
+      restoreBackup: vi.fn(),
+    },
+  };
 });
 const changePassword = vi.mocked(api.changePassword);
+const backupFolder = vi.mocked(api.backupFolder);
+const listBackups = vi.mocked(api.listBackups);
+const backupNow = vi.mocked(api.backupNow);
+const restoreBackup = vi.mocked(api.restoreBackup);
+
+const backup = (name: string, bytes = 1024, modified = "2026-11-21T09:30:00+11:00") => ({
+  name,
+  path: `/home/me/.local/share/plutus/${name}`,
+  bytes,
+  modified,
+});
 
 beforeEach(() => {
   changePassword.mockReset();
+  backupFolder.mockReset().mockResolvedValue("/home/me/.local/share/plutus/backups");
+  listBackups.mockReset().mockResolvedValue([]);
+  backupNow.mockReset();
+  restoreBackup.mockReset();
 });
 
 function setup() {
@@ -95,5 +120,91 @@ describe("SettingsPage: change password", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Couldn't change password: I/o error: disk full.",
     );
+  });
+});
+
+describe("SettingsPage: backup", () => {
+  function setupBackup(onDataReplaced = vi.fn()) {
+    render(
+      <ToastProvider>
+        <SettingsPage minChars={8} onDataReplaced={onDataReplaced} />
+      </ToastProvider>,
+    );
+    return { user: userEvent.setup(), onDataReplaced };
+  }
+
+  it("lists the backups with their size and time", async () => {
+    listBackups.mockResolvedValue([
+      backup("Plutus-20261121-093000.db", 2048, "2026-11-21T09:30:00+11:00"),
+      backup("Plutus-20261120-200000.db", 512, "2026-11-20T20:00:00+11:00"),
+    ]);
+    setupBackup();
+    const list = await screen.findByRole("list", { name: "Backups" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(list).getByText("Plutus-20261121-093000.db")).toBeInTheDocument();
+    expect(within(list).getByText("2026-11-21 09:30 · 2 KB")).toBeInTheDocument();
+    expect(within(list).getByText("2026-11-20 20:00 · 512 B")).toBeInTheDocument();
+    expect(screen.getByText(/Saved in/)).toHaveTextContent("/plutus/backups");
+  });
+
+  it("says so when there are no backups yet", async () => {
+    setupBackup();
+    expect(await screen.findByText(/No backups yet/)).toBeInTheDocument();
+  });
+
+  it("backs up on demand and reloads the list", async () => {
+    backupNow.mockResolvedValue(backup("Plutus-20261121-093000.db", 4096));
+    const { user } = setupBackup();
+    await screen.findByText(/No backups yet/);
+    await user.click(screen.getByRole("button", { name: "Back up now" }));
+    expect(backupNow).toHaveBeenCalledTimes(1);
+    expect(listBackups).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(/Backed up 4 KB/)).toBeInTheDocument();
+  });
+
+  it("confirms before restoring and tells the shell to reload", async () => {
+    listBackups.mockResolvedValue([backup("Plutus-20261121-093000.db")]);
+    restoreBackup.mockResolvedValue(undefined);
+    const { user, onDataReplaced } = setupBackup();
+    await screen.findByText("Plutus-20261121-093000.db");
+
+    await user.click(screen.getByRole("button", { name: "Restore" }));
+    expect(restoreBackup).not.toHaveBeenCalled();
+    expect(screen.getByText("Replace all current data?")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Restore" }));
+    expect(restoreBackup).toHaveBeenCalledWith("Plutus-20261121-093000.db");
+    expect(onDataReplaced).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Restored/)).toBeInTheDocument();
+  });
+
+  it("can cancel a restore", async () => {
+    listBackups.mockResolvedValue([backup("Plutus-20261121-093000.db")]);
+    const { user } = setupBackup();
+    await screen.findByText("Plutus-20261121-093000.db");
+    await user.click(screen.getByRole("button", { name: "Restore" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText("Replace all current data?")).not.toBeInTheDocument();
+    expect(restoreBackup).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed restore and keeps the data", async () => {
+    listBackups.mockResolvedValue([backup("Plutus-20261121-093000.db")]);
+    restoreBackup.mockRejectedValue(new Error("This file is not a Plutus backup."));
+    const { user, onDataReplaced } = setupBackup();
+    await screen.findByText("Plutus-20261121-093000.db");
+    await user.click(screen.getByRole("button", { name: "Restore" }));
+    await user.click(screen.getByRole("button", { name: "Restore" }));
+    expect(await screen.findByText(/Couldn't restore/)).toBeInTheDocument();
+    expect(onDataReplaced).not.toHaveBeenCalled();
+  });
+
+  it("shows a load error with a retry", async () => {
+    listBackups.mockRejectedValueOnce(new Error("Disk unavailable"));
+    const { user } = setupBackup();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Disk unavailable");
+    listBackups.mockResolvedValue([backup("Plutus-20261121-093000.db")]);
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Plutus-20261121-093000.db")).toBeInTheDocument();
   });
 });

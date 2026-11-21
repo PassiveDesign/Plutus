@@ -4,10 +4,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use plutus_core::{
-    Account, AccountInput, Category, CategoryGroup, CategoryInput, Database, DbError, GroupInput,
-    LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction, TransactionInput,
-    TransactionQuery, Transfer, TransferInput, Vault, accounts, budgets, categories, import,
-    reports, rules, transactions, transfers,
+    Account, AccountInput, BackupFile, Category, CategoryGroup, CategoryInput, Database, DbError,
+    GroupInput, LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction, TransactionInput,
+    TransactionQuery, Transfer, TransferInput, Vault, accounts, backup, budgets, categories,
+    import, reports, rules, transactions, transfers,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -15,6 +15,8 @@ use tauri::{Manager, State};
 /// Shared app state: the vault guarding the encrypted database.
 struct AppState {
     vault: Arc<Mutex<Vault>>,
+    /// App data directory; backups live in `backups/` inside it.
+    data_dir: std::path::PathBuf,
 }
 
 /// Error shape returned to the UI: a stable `code`, a readable message, and
@@ -81,6 +83,22 @@ where
     let result = tauri::async_runtime::spawn_blocking(move || {
         let v = guard(&vault);
         f(v.db()?)
+    })
+    .await?;
+    Ok(result?)
+}
+
+/// Run `f` against the vault itself (locked or not) on a blocking thread.
+/// Used by backup/restore, which close and reopen the database file.
+async fn with_vault<T, F>(vault: &Arc<Mutex<Vault>>, f: F) -> CmdResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce(&mut Vault) -> Result<T, DbError> + Send + 'static,
+{
+    let vault = Arc::clone(vault);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        let mut v = guard(&vault);
+        f(&mut v)
     })
     .await?;
     Ok(result?)
@@ -475,6 +493,37 @@ async fn report(
     with_db(&state.vault, move |db| reports::report(db, from, to)).await
 }
 
+/// Copy the database into the backups folder and return the new file.
+#[tauri::command]
+async fn backup_now(state: State<'_, AppState>) -> CmdResult<BackupFile> {
+    let dir = state.data_dir.clone();
+    with_vault(&state.vault, move |v| {
+        backup::backup_now(v, &dir, chrono::Local::now())
+    })
+    .await
+}
+
+/// Every backup on disk, newest first.
+#[tauri::command]
+async fn list_backups(state: State<'_, AppState>) -> CmdResult<Vec<BackupFile>> {
+    let dir = state.data_dir.clone();
+    let files = tauri::async_runtime::spawn_blocking(move || backup::list(&dir)).await?;
+    Ok(files?)
+}
+
+/// Where backups are kept, for display in Settings.
+#[tauri::command]
+fn backup_folder(state: State<'_, AppState>) -> String {
+    backup::dir_in(&state.data_dir).display().to_string()
+}
+
+/// Replace the database with the named backup. The app stays unlocked.
+#[tauri::command]
+async fn restore_backup(state: State<'_, AppState>, name: String) -> CmdResult<()> {
+    let dir = state.data_dir.clone();
+    with_vault(&state.vault, move |v| backup::restore(v, &dir, &name)).await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -490,6 +539,7 @@ pub fn run() {
             let vault = Vault::new(Database::path_in(&data_dir));
             app.manage(AppState {
                 vault: Arc::new(Mutex::new(vault)),
+                data_dir,
             });
             Ok(())
         })
@@ -535,7 +585,11 @@ pub fn run() {
             clear_budget,
             set_budget_rollover,
             dashboard,
-            report
+            report,
+            backup_now,
+            list_backups,
+            backup_folder,
+            restore_backup
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -963,6 +1017,67 @@ mod tests {
                 .await
                 .unwrap_err();
             assert_eq!(e.field, Some("to"));
+        });
+    }
+
+    #[test]
+    fn backup_then_restore_keeps_the_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        let data_dir = dir.path().to_path_buf();
+        tauri::async_runtime::block_on(async {
+            let file = with_vault(&vault, {
+                let data_dir = data_dir.clone();
+                move |v| backup::backup_now(v, &data_dir, chrono::Local::now())
+            })
+            .await
+            .unwrap();
+            assert!(std::path::Path::new(&file.path).is_file());
+            assert!(file.bytes > 0);
+
+            let listed = with_vault(&vault, {
+                let data_dir = data_dir.clone();
+                move |_v| backup::list(&data_dir)
+            })
+            .await
+            .unwrap();
+            assert_eq!(listed.len(), 1);
+            assert_eq!(listed[0].name, file.name);
+
+            with_vault(&vault, {
+                let data_dir = data_dir.clone();
+                let name = file.name.clone();
+                move |v| backup::restore(v, &data_dir, &name)
+            })
+            .await
+            .unwrap();
+            // Still unlocked and usable after the swap.
+            assert_eq!(guard(&vault).status().as_str(), "unlocked");
+        });
+    }
+
+    #[test]
+    fn restore_backup_requires_an_unlocked_vault() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        let data_dir = dir.path().to_path_buf();
+        tauri::async_runtime::block_on(async {
+            let file = with_vault(&vault, {
+                let data_dir = data_dir.clone();
+                move |v| backup::backup_now(v, &data_dir, chrono::Local::now())
+            })
+            .await
+            .unwrap();
+            guard(&vault).lock();
+            let e = with_vault(&vault, {
+                let data_dir = data_dir.clone();
+                move |v| backup::restore(v, &data_dir, &file.name)
+            })
+            .await
+            .unwrap_err();
+            assert_eq!(e.code, "locked");
         });
     }
 }

@@ -88,7 +88,8 @@ Feature scope is a first draft — edit freely.
 
 ## M7 — Data safety
 
-- [ ] Backup / restore the database file from Settings
+- [x] Backup / restore the database file from Settings (backups beside the
+      database; restore keeps a pre-restore copy)
 - [ ] Export transactions to CSV
 - [ ] Auto-lock after inactivity (optional)
 

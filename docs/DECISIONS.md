@@ -169,3 +169,15 @@ Short, dated entries. Future sessions follow these without re-deciding.
   screen readers. The net-worth line scales to the data (not forced to
   include $0) so a mortgage doesn't flatten the trend. Net worth history
   counts each account from its opening date.
+
+- **2026-11-21 — Backups are byte copies of the encrypted file.** A backup is
+  the SQLCipher file copied while the database is closed (so the WAL is
+  checkpointed and the copy is complete), named `plutus-YYYYMMDD-HHMMSS.db`
+  and kept in a `backups/` folder beside the database. The copy stays
+  encrypted under the same password, so it opens on any machine and needs no
+  separate format. The newest 10 are kept; older ones are deleted after each
+  backup. The vault keeps the password in memory while unlocked so a backup
+  can close and reopen the file without prompting again; it is cleared on
+  lock. Restoring verifies the candidate opens (and migrates) before touching
+  the live data, keeps the old file as `plutus.db.before-restore`, and leaves
+  the vault unlocked. The UI confirms before restoring.

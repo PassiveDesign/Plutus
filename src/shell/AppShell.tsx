@@ -18,6 +18,8 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
   const [current, setCurrent] = useState<PageId>("dashboard");
   // Account to pre-filter Transactions with when arriving from Import.
   const [txAccount, setTxAccount] = useState<number | null>(null);
+  // Bumped after a restore so every page remounts and reloads its data.
+  const [dataVersion, setDataVersion] = useState(0);
 
   function navigate(id: PageId) {
     setTxAccount(null);
@@ -49,12 +51,18 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
         <header className="page-header">
           <h1>{page.label}</h1>
         </header>
-        <section className="page-body">
+        <section className="page-body" key={dataVersion}>
           {/* Real pages replace the placeholder here as roadmap tasks land. */}
           {current === "dashboard" ? (
             <DashboardPage onNavigate={navigate} onOpenAccount={openAccount} />
           ) : current === "settings" ? (
-            <SettingsPage minChars={minPasswordChars} />
+            <SettingsPage
+              minChars={minPasswordChars}
+              onDataReplaced={() => {
+                setDataVersion((v) => v + 1);
+                navigate("dashboard");
+              }}
+            />
           ) : current === "accounts" ? (
             <AccountsPage />
           ) : current === "transactions" ? (

@@ -4,6 +4,7 @@
 //! verified on any host with just a Rust toolchain.
 
 pub mod accounts;
+pub mod backup;
 pub mod budgets;
 pub mod categories;
 pub mod db;
@@ -16,6 +17,7 @@ pub mod transfers;
 pub mod vault;
 
 pub use accounts::{Account, AccountInput, AccountKind};
+pub use backup::BackupFile;
 pub use categories::{Category, CategoryGroup, CategoryInput, GroupInput, GroupKind};
 pub use db::{Database, DbError};
 pub use money::{Money, MoneyError};
