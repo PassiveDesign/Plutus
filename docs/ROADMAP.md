@@ -84,9 +84,11 @@ Feature scope is a first draft — edit freely.
 
 ## M6.5 — Release
 
-- [ ] Cut `v0.6.0` (budgets, dashboard, reports); verify v7 → v9 upgrade
+- [x] Cut `v0.6.0` (budgets, dashboard, reports); verify v7 → v9 upgrade
 
 ## M7 — Data safety
+
+- [ ] Cut `v0.7.0` (backup / restore); verify v9 → v9 upgrade
 
 - [x] Backup / restore the database file from Settings (backups beside the
       database; restore keeps a pre-restore copy)

@@ -1,6 +1,6 @@
 [package]
 name = "plutus"
-version = "0.6.0"
+version = "0.7.0"
 description = "Plutus - personal finance application"
 authors = ["PassiveDesign"]
 edition = "2024"
