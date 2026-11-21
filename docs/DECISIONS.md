@@ -107,3 +107,9 @@ Short, dated entries. Future sessions follow these without re-deciding.
   account/date/amount change via `transfers::update`. Deleting either leg
   deletes both. An existing ordinary transaction can't be converted into a
   transfer (delete and re-add); that may come with import matching (M4).
+- **2026-11-21 — Categories are a two-level tree** (groups → categories).
+  Groups are `income` or `expense` (for budgets/reports); 11 groups and 47
+  Australian-household defaults are seeded by migration 0005 and can be
+  renamed/archived. Archive, never delete (like accounts). Active names
+  unique per group (groups globally), case-insensitive. Transfers are not
+  categorised. `transactions.category_id` added (nullable FK, RESTRICT).

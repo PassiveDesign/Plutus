@@ -79,6 +79,15 @@ Rewritten at the end of every session. Read after AGENTS.md.
   TransactionForm: Money out / Money in / Transfer; editing either leg edits
   the transfer from the outgoing side; "Really delete both sides?". 77 core,
   7 shell, 100 UI tests. **M2 complete.**
+- **v0.3.0 published** (owner smoke test passed).
+- **Category tree done (core + commands):** migration 0005 (schema v5:
+  `category_groups`, `categories`, `transactions.category_id`), module
+  `plutus-core::categories` (`tree`, `get_group`, `get`, `create_group`,
+  `update_group`, `set_group_archived`, `create`, `update`, `set_archived`),
+  commands `list_categories`, `create_category_group`,
+  `update_category_group`, `set_category_group_archived`,
+  `create_category`, `update_category`, `set_category_archived`; TS types +
+  wrappers in `api.ts`. No UI yet. 84 core tests.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -124,15 +133,19 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. **Get the owner's v0.3.0 smoke-test results.** Checklist: install over
-   v0.2.0 → unlock (DB upgrades v2 → v4 silently, real accounts intact) →
-   add transactions (money out/in), a transfer between two offsets → check
-   running balances (Transactions filtered to one account) and the Accounts
-   page balances/net owed → cleared toggle, edit, delete (incl. a transfer)
-   → restart. If good: `gh release edit v0.3.0 --draft=false --latest`,
-   tick M2.5. If not: fix, cut v0.3.1.
-2. Then **M3 — Categories** (migration adds `categories` table and
-   `transactions.category_id` via ALTER).
+**M3 — Assign categories to transactions:**
+- Core: `Transaction.category_id` (add `t.category_id` to `columns!()`;
+  running-balance column index moves to 13), `TransactionInput.category_id`
+  (`#[serde(default)]`), validated: must exist and be active unless it's
+  the transaction's current category; rejected on transfer legs (field
+  `category_id`). `transactions::set_category(db, ids: &[i64],
+  category_id: Option<i64>)` for bulk assign (skips transfer legs, one SQL
+  transaction, returns count). Tests.
+- Commands: `set_transaction_category(ids, categoryId)`.
+- UI: Category picker (grouped `<optgroup>`, "Uncategorised" first) in
+  TransactionForm (hidden for transfers); Category column on the
+  Transactions page; checkbox selection + "Set category…" bulk action.
+Then the Categories page (ROADMAP M3 item 2).
 
 ## Open questions for the owner
 

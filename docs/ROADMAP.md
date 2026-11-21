@@ -38,11 +38,12 @@ Feature scope is a first draft — edit freely.
 
 ## M2.5 — Release
 
-- [ ] Cut `v0.3.0` (transactions, running balances, transfers); owner enters real transactions; verify v2 → v4 database upgrade
+- [x] Cut `v0.3.0` (transactions, running balances, transfers); owner enters real transactions; verify v2 → v4 database upgrade
 
 ## M3 — Categories & rules
 
-- [ ] Category tree (groups + categories), defaults seeded by migration
+- [x] Category tree (groups + categories), defaults seeded by migration (core + commands)
+- [ ] Categories page: add, rename, move, archive groups and categories
 - [ ] Assign/bulk-assign categories in the transactions table
 - [ ] Auto-categorisation rules (payee contains / amount matches → category)
 

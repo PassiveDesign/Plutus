@@ -116,6 +116,29 @@ export type TransferInput = {
 
 export type Transfer = { id: number; from: Transaction; to: Transaction };
 
+export type GroupKind = "income" | "expense";
+
+export type Category = {
+  id: number;
+  group_id: number;
+  name: string;
+  sort_order: number;
+  archived_at: string | null;
+};
+
+/** Income groups come first in the tree, then expense groups. */
+export type CategoryGroup = {
+  id: number;
+  name: string;
+  kind: GroupKind;
+  sort_order: number;
+  archived_at: string | null;
+  categories: Category[];
+};
+
+export type GroupInput = { name: string; kind: GroupKind };
+export type CategoryInput = { group_id: number; name: string };
+
 /** A listed transaction with the account balance after it. `running_balance`
  *  is null unless the query is for one account, and for rows dated before the
  *  account's opening date. */
@@ -161,6 +184,19 @@ export const api = {
     invoke<Transaction>("update_transaction", { id, input }),
   /** Deleting either leg of a transfer deletes both. */
   deleteTransaction: (id: number) => invoke<void>("delete_transaction", { id }),
+  listCategories: (includeArchived = false) =>
+    invoke<CategoryGroup[]>("list_categories", { includeArchived }),
+  createCategoryGroup: (input: GroupInput) =>
+    invoke<CategoryGroup>("create_category_group", { input }),
+  updateCategoryGroup: (id: number, input: GroupInput) =>
+    invoke<CategoryGroup>("update_category_group", { id, input }),
+  setCategoryGroupArchived: (id: number, archived: boolean) =>
+    invoke<CategoryGroup>("set_category_group_archived", { id, archived }),
+  createCategory: (input: CategoryInput) => invoke<Category>("create_category", { input }),
+  updateCategory: (id: number, input: CategoryInput) =>
+    invoke<Category>("update_category", { id, input }),
+  setCategoryArchived: (id: number, archived: boolean) =>
+    invoke<Category>("set_category_archived", { id, archived }),
   createTransfer: (input: TransferInput) => invoke<Transfer>("create_transfer", { input }),
   updateTransfer: (id: number, input: TransferInput) =>
     invoke<Transfer>("update_transfer", { id, input }),

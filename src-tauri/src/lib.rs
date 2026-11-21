@@ -4,9 +4,10 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use plutus_core::{
-    Account, AccountInput, Database, DbError, LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError,
-    Transaction, TransactionInput, TransactionQuery, Transfer, TransferInput, Vault, accounts,
-    transactions, transfers,
+    Account, AccountInput, Category, CategoryGroup, CategoryInput, Database, DbError, GroupInput,
+    LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction, TransactionInput,
+    TransactionQuery, Transfer, TransferInput, Vault, accounts, categories, transactions,
+    transfers,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -248,6 +249,76 @@ async fn update_transfer(
     with_db(&state.vault, move |db| transfers::update(db, id, &input)).await
 }
 
+/// The category tree (income groups first).
+#[tauri::command]
+async fn list_categories(
+    state: State<'_, AppState>,
+    include_archived: bool,
+) -> CmdResult<Vec<CategoryGroup>> {
+    with_db(&state.vault, move |db| {
+        categories::tree(db, include_archived)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn create_category_group(
+    state: State<'_, AppState>,
+    input: GroupInput,
+) -> CmdResult<CategoryGroup> {
+    with_db(&state.vault, move |db| categories::create_group(db, &input)).await
+}
+
+#[tauri::command]
+async fn update_category_group(
+    state: State<'_, AppState>,
+    id: i64,
+    input: GroupInput,
+) -> CmdResult<CategoryGroup> {
+    with_db(&state.vault, move |db| {
+        categories::update_group(db, id, &input)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn set_category_group_archived(
+    state: State<'_, AppState>,
+    id: i64,
+    archived: bool,
+) -> CmdResult<CategoryGroup> {
+    with_db(&state.vault, move |db| {
+        categories::set_group_archived(db, id, archived)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn create_category(state: State<'_, AppState>, input: CategoryInput) -> CmdResult<Category> {
+    with_db(&state.vault, move |db| categories::create(db, &input)).await
+}
+
+#[tauri::command]
+async fn update_category(
+    state: State<'_, AppState>,
+    id: i64,
+    input: CategoryInput,
+) -> CmdResult<Category> {
+    with_db(&state.vault, move |db| categories::update(db, id, &input)).await
+}
+
+#[tauri::command]
+async fn set_category_archived(
+    state: State<'_, AppState>,
+    id: i64,
+    archived: bool,
+) -> CmdResult<Category> {
+    with_db(&state.vault, move |db| {
+        categories::set_archived(db, id, archived)
+    })
+    .await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -285,7 +356,14 @@ pub fn run() {
             update_transaction,
             delete_transaction,
             create_transfer,
-            update_transfer
+            update_transfer,
+            list_categories,
+            create_category_group,
+            update_category_group,
+            set_category_group_archived,
+            create_category,
+            update_category,
+            set_category_archived
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -473,6 +551,38 @@ mod tests {
                 .await
                 .unwrap_err();
             assert_eq!((e.code, e.field), ("invalid", Some("to_account")));
+        });
+    }
+
+    #[test]
+    fn category_commands_list_create_and_report_conflicts() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let tree = with_db(&vault, |db| categories::tree(db, false))
+                .await
+                .unwrap();
+            let json = serde_json::to_value(&tree).unwrap();
+            assert_eq!(json[0]["kind"], "income");
+            let food = tree.iter().find(|g| g.name == "Food").unwrap().id;
+
+            let ok: CategoryInput =
+                serde_json::from_value(serde_json::json!({"group_id": food, "name": "Snacks"}))
+                    .unwrap();
+            let c = with_db(&vault, move |db| categories::create(db, &ok))
+                .await
+                .unwrap();
+            assert_eq!(c.group_id, food);
+
+            let dup: CategoryInput =
+                serde_json::from_value(serde_json::json!({"group_id": food, "name": "snacks"}))
+                    .unwrap();
+            let e = with_db(&vault, move |db| categories::create(db, &dup))
+                .await
+                .unwrap_err();
+            assert_eq!(e.field, Some("name"));
+            assert_ne!(e.code, "invalid", "a clash is a conflict, not bad input");
         });
     }
 }
