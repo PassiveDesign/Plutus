@@ -60,6 +60,16 @@ Rewritten at the end of every session. Read after AGENTS.md.
 - Cold `plutus-core` build takes ~80s (SQLCipher + vendored OpenSSL).
 - `gh` lives at `~/.local/bin/gh`; Rust via rustup in `~/.cargo`.
 
+## Blocker (owner action)
+
+- **GitHub Actions will not start jobs** for this repo: runs fail within ~2
+  seconds with zero steps and no runner. The check-run annotation says "The
+  job was not started because recent account payments have failed or your
+  spending limit needs to be increased." Fix billing (card / spending limit) in
+  GitHub → Settings → Billing; then CI and the Release workflow will run again.
+  Until then, `v0.9.0` is pushed to `main` but not tagged, and nothing new can
+  be built. An empty commit `8cd8f53` sits on `main` from the diagnosis.
+
 ## Half-done work
 
 None.
