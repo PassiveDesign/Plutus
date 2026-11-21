@@ -98,7 +98,11 @@ describe("CategoriesPage", () => {
     expect(screen.getByRole("region", { name: "Income" })).toHaveTextContent("Income");
     expect(within(food).getByText("Expenses")).toBeInTheDocument();
     expect(within(food).getByText("Groceries").closest("li")).toHaveTextContent("12 transactions");
-    expect(screen.getByText("Salary & wages").closest("li")).toHaveTextContent("1 transaction");
+    // Wait for the Rules list too, so the text appears in both places
+    // (previously this raced on fast machines).
+    await within(screen.getByRole("region", { name: "Rules" })).findAllByRole("listitem");
+    const income = screen.getByRole("region", { name: "Income" });
+    expect(within(income).getByText("Salary & wages").closest("li")).toHaveTextContent("1 transaction");
     expect(within(food).queryByText("Old snacks")).toBeNull();
     expect(screen.queryByRole("region", { name: "Retired" })).toBeNull();
   });
