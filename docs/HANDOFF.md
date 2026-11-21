@@ -133,19 +133,24 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M3 — Assign categories to transactions:**
-- Core: `Transaction.category_id` (add `t.category_id` to `columns!()`;
-  running-balance column index moves to 13), `TransactionInput.category_id`
-  (`#[serde(default)]`), validated: must exist and be active unless it's
-  the transaction's current category; rejected on transfer legs (field
-  `category_id`). `transactions::set_category(db, ids: &[i64],
-  category_id: Option<i64>)` for bulk assign (skips transfer legs, one SQL
-  transaction, returns count). Tests.
-- Commands: `set_transaction_category(ids, categoryId)`.
-- UI: Category picker (grouped `<optgroup>`, "Uncategorised" first) in
-  TransactionForm (hidden for transfers); Category column on the
-  Transactions page; checkbox selection + "Set category…" bulk action.
-Then the Categories page (ROADMAP M3 item 2).
+**M4 — Bank of Melbourne CSV importer (core first):** format notes and a
+synthetic fixture are in `src-tauri/core/tests/fixtures/bank_of_melbourne/`.
+- `plutus-core::import::bom` parses bytes → `Vec<ParsedRow { date, amount
+  (credit − debit), description (whitespace collapsed), balance }>`; skips
+  `,,,,` rows; strict header check with a friendly error; MM/DD/YYYY;
+  row-numbered errors. Use the `csv` crate (RFC 4180 quoting).
+- Payee guess: for `Eftpos Debit … DDMonHH:MM  Merchant \ Suburb Au`, take
+  the merchant; otherwise none (keep description as the bank text).
+- Preview: `import::preview(db, account_id, rows)` marks each row new or
+  duplicate (`import_hash` = sha256 of account|date|amount|normalised
+  description, plus an occurrence index for identical rows on the same day;
+  migration adds `transactions.import_hash` + unique index per account), and
+  checks the file's balance chain.
+- `import::commit` inserts the new rows in one SQL transaction.
+- Then the import UI (file picker via Tauri dialog plugin, preview table,
+  account choice, Import button).
+After M4's BoM tasks: M3 assignment (see the plan in git history of this
+file, commit 6d76114).
 
 ## Open questions for the owner
 

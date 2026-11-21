@@ -113,3 +113,7 @@ Short, dated entries. Future sessions follow these without re-deciding.
   renamed/archived. Archive, never delete (like accounts). Active names
   unique per group (groups globally), case-insensitive. Transfers are not
   categorised. `transactions.category_id` added (nullable FK, RESTRICT).
+- **2026-11-21 — Import before category assignment.** The owner supplied
+  the Bank of Melbourne CSV format, so M4's importer comes next (it saves
+  the most typing); M3 assignment/rules follow. BoM dates are MM/DD/YYYY;
+  the importer parses that format explicitly, never guesses day/month order.

@@ -49,7 +49,7 @@ Feature scope is a first draft — edit freely.
 
 ## M4 — Import (Bank of Melbourne first)
 
-- [ ] Get a Bank of Melbourne CSV header row + date/amount format from the owner (no real transactions) and write synthetic fixtures
+- [x] Get a Bank of Melbourne CSV header row + date/amount format from the owner (no real transactions) and write synthetic fixtures — see `src-tauri/core/tests/fixtures/bank_of_melbourne/README.md`
 - [ ] Bank of Melbourne CSV importer (built-in preset) with preview before commit
 - [ ] Duplicate detection on import (date + amount + description hash; overlapping exports are expected)
 - [ ] Generic CSV import with column mapping, saved as reusable presets
