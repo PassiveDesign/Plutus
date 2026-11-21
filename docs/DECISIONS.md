@@ -181,3 +181,5 @@ Short, dated entries. Future sessions follow these without re-deciding.
   lock. Restoring verifies the candidate opens (and migrates) before touching
   the live data, keeps the old file as `plutus.db.before-restore`, and leaves
   the vault unlocked. The UI confirms before restoring.
+
+- **2026-11-21 — CSV export.** The Transactions page exports what the current filters match (all of it, not just the visible page) to `<app data>/exports/transactions-YYYYMMDD-HHMMSS.csv`, beside the database's `backups` folder. Columns: Date, Account, Payee, Description, Category, Amount, Transfer. Dates are ISO (`2026-11-20`); amounts are signed plain decimals (`-7.99` for money out, no currency symbol or thousands separators); fields containing a comma, quote or newline are quoted with doubled quotes. Rows are oldest first so the file reads like a statement. Exports are not encrypted — they are plain text, so they are the owner's to store or delete.

@@ -29,6 +29,7 @@ vi.mock("../lib/api", async (orig) => {
       createTransfer: vi.fn(),
       updateTransfer: vi.fn(),
       setTransactionCategory: vi.fn(),
+      exportTransactions: vi.fn(),
       listCategories: vi.fn(),
       parseMoney: vi.fn(),
     },
@@ -142,6 +143,12 @@ beforeEach(() => {
       .map((t): LedgerRow => ({ ...t, running_balance: running.get(t.id) ?? null }));
   });
   m.countTransactions.mockImplementation(async (q: TransactionQuery = {}) => matching(q).length);
+  m.exportTransactions.mockResolvedValue({
+    name: "transactions-20261121-120000.csv",
+    path: "/home/x/.local/share/plutus/exports/transactions-20261121-120000.csv",
+    bytes: 240,
+    rows: 2,
+  });
   m.parseMoney.mockImplementation(async (text: string) => {
     const t = text.replace(/[$,\s]/g, "");
     if (!/^-?\d+(\.\d{1,2})?$/.test(t)) throw { code: "invalid_amount", message: "Enter an amount like 1,234.56." };
@@ -552,5 +559,39 @@ describe("TransactionsPage", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load transactions: The vault is locked.");
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("No transactions yet.")).toBeInTheDocument();
+  });
+
+  it("exports the current filters to CSV", async () => {
+    txs.push(tx(1, "2026-11-02", -799, "Woolworths"), tx(1, "2026-11-03", -450, "Cafe"));
+    const user = renderPage();
+    await screen.findByText("Woolworths");
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(m.exportTransactions).toHaveBeenCalledWith({ account_id: null, from: null, to: null });
+    expect(await screen.findByText(/Exported 2 transactions to transactions-20261121-120000.csv/)).toBeInTheDocument();
+  });
+
+  it("exports only the filtered account", async () => {
+    txs.push(tx(1, "2026-11-02", -799, "Woolworths"), tx(2, "2026-11-03", -450, "Cafe"));
+    const user = renderPage();
+    await screen.findByText("Woolworths");
+    await user.selectOptions(screen.getByLabelText("Account"), "2");
+    await screen.findByText("Cafe");
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(m.exportTransactions).toHaveBeenCalledWith({ account_id: 2, from: null, to: null });
+  });
+
+  it("disables export when there is nothing to export", async () => {
+    renderPage();
+    await screen.findByText("No transactions yet.");
+    expect(screen.getByRole("button", { name: "Export CSV" })).toBeDisabled();
+  });
+
+  it("reports a failed export", async () => {
+    txs.push(tx(1, "2026-11-02", -799, "Woolworths"));
+    m.exportTransactions.mockRejectedValue(new Error("Disk is full."));
+    const user = renderPage();
+    await screen.findByText("Woolworths");
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+    expect(await screen.findByText("Couldn't export: Disk is full.")).toBeInTheDocument();
   });
 });

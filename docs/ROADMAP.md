@@ -93,7 +93,7 @@ Feature scope is a first draft — edit freely.
 
 - [x] Backup / restore the database file from Settings (backups beside the
       database; restore keeps a pre-restore copy)
-- [ ] Export transactions to CSV
+- [x] Export transactions to CSV (Transactions page, current filters)
 - [ ] Auto-lock after inactivity (optional)
 
 ## M8 — v1.0

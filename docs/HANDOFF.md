@@ -8,6 +8,7 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ### Newest first
 
+- **M7 CSV export done.** `plutus-core::export` writes the transactions matching the filters to `exports/transactions-<stamp>.csv` (plain text, signed amounts, oldest first). Command `export_transactions`; "Export CSV" button on the Transactions page. 130 core tests (5 new), 157 UI tests (4 new); checked in the browser preview. `errorMessage` now returns the message for plain `Error` objects instead of "Error: …".
 - **v0.7.0 built as a draft release** (run 44894810100, both platforms green):
   `Plutus_0.7.0_x64-setup.exe` 3.5 MB, `.msi` 4.7 MB, `.AppImage` 79.8 MB,
   `.deb` 5.2 MB, `.rpm` 5.2 MB. CI 44894354054: 125 core, 17 shell, 153 UI
@@ -25,12 +26,9 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. Owner smoke test of v0.7.0: install over v0.5.0, unlock (v7 → v9), check
-   budgets, dashboard, reports, then Settings → Backup → Back up now and
-   Restore. If good, publish the release
-   (`gh release edit v0.7.0 --draft=false --latest`) and tick the ROADMAP item.
-2. Then the rest of M7: CSV export of transactions, optional auto-lock after
-   inactivity. Ask the owner which first.
+1. Cut v0.8.0 with the CSV export (bump the three version files, tag, publish).
+2. Remaining M7: auto-lock after idle (optional) — or move to M4 import polish.
+3. Owner smoke test of v0.7.0/v0.8.0: budgets, dashboard, reports, backup + restore, export.
 
 ## Open questions for the owner
 

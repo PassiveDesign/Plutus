@@ -5,9 +5,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use plutus_core::{
     Account, AccountInput, BackupFile, Category, CategoryGroup, CategoryInput, Database, DbError,
-    GroupInput, LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction, TransactionInput,
-    TransactionQuery, Transfer, TransferInput, Vault, accounts, backup, budgets, categories,
-    import, reports, rules, transactions, transfers,
+    ExportedFile, GroupInput, LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction,
+    TransactionInput, TransactionQuery, Transfer, TransferInput, Vault, accounts, backup, budgets,
+    categories, export, import, reports, rules, transactions, transfers,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -521,6 +521,16 @@ async fn restore_backup(state: State<'_, AppState>, name: String) -> CmdResult<(
     with_vault(&state.vault, move |v| backup::restore(v, &dir, &name)).await
 }
 
+/// Write the transactions matching `query` to a CSV file in the exports folder.
+#[tauri::command]
+async fn export_transactions(
+    state: State<'_, AppState>,
+    query: TransactionQuery,
+) -> CmdResult<ExportedFile> {
+    let dir = state.data_dir.clone();
+    with_db(&state.vault, move |db| export::export_now(db, &dir, &query)).await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -583,6 +593,7 @@ pub fn run() {
             set_budget_rollover,
             dashboard,
             report,
+            export_transactions,
             backup_now,
             list_backups,
             backup_folder,

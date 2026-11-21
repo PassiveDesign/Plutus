@@ -32,6 +32,7 @@ export function errorMessage(e: unknown): string {
       }
     }
   }
+  if (e instanceof Error) return e.message;
   return String(e);
 }
 
@@ -201,6 +202,14 @@ export type MonthBudget = {
   income: number;
 };
 
+export type ExportedFile = {
+  name: string;
+  path: string;
+  bytes: number;
+  /** How many transactions went into the file. */
+  rows: number;
+};
+
 export type BackupFile = {
   name: string;
   path: string;
@@ -351,6 +360,8 @@ export const api = {
     invoke<number>("set_transaction_category", { ids, categoryId }),
   createTransfer: (input: TransferInput) => invoke<Transfer>("create_transfer", { input }),
   /** Copy the encrypted database into the backups folder. */
+  exportTransactions: (query: TransactionQuery) =>
+    invoke<ExportedFile>("export_transactions", { query }),
   backupNow: () => invoke<BackupFile>("backup_now"),
   listBackups: () => invoke<BackupFile[]>("list_backups"),
   /** Folder holding the copies, for display. */

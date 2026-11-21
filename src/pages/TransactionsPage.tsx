@@ -30,6 +30,7 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkCategory, setBulkCategory] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const filter = useMemo<TransactionQuery>(
     () => ({ account_id: accountId, from: from || null, to: to || null }),
@@ -238,6 +239,18 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
   const first = total === 0 ? 0 : page * PAGE_SIZE + 1;
   const last = Math.min(total, (page + 1) * PAGE_SIZE);
 
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      const file = await api.exportTransactions(filter);
+      toast.success(`Exported ${file.rows} transactions to ${file.name}.`);
+    } catch (e) {
+      toast.error(`Couldn't export: ${errorMessage(e)}`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <div className="transactions">
       <div className="toolbar filters">
@@ -266,6 +279,15 @@ export function TransactionsPage({ initialAccountId = null }: Props = {}) {
           changeFilter(() => setTo(v));
         }} />
         <span className="spacer" />
+        <Button
+          variant="secondary"
+          onClick={() => void exportCsv()}
+          busy={exporting}
+          busyLabel="Exporting…"
+          disabled={total === 0}
+        >
+          Export CSV
+        </Button>
         <Button onClick={() => setEditing("new")} disabled={activeAccounts.length === 0}>
           <Plus size={16} aria-hidden="true" /> Add transaction
         </Button>
