@@ -738,3 +738,59 @@ button:disabled {
   white-space: nowrap;
   border: 0;
 }
+
+/* ---- Import ---- */
+
+.import-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.import-page > .muted {
+  margin: 0;
+  max-width: 60ch;
+}
+
+.import-file-pick .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.75rem;
+}
+
+.import-file {
+  align-self: flex-end;
+  line-height: 2.75rem;
+  margin: 0;
+}
+
+.import-page .cell-sub {
+  word-break: break-word;
+}
+
+.import-summary {
+  margin: 0;
+  font-weight: 600;
+}
+
+.import-done {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: var(--hover);
+}
+
+.badge.status-new {
+  background: var(--accent-soft, var(--hover));
+  color: var(--accent, inherit);
+}
+
+.badge.status-possible_match,
+.badge.status-before_opening {
+  background: var(--warning-bg);
+  color: inherit;
+  border: 1px solid var(--warning-border);
+}

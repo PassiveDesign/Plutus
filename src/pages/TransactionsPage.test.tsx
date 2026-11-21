@@ -434,6 +434,18 @@ describe("TransactionsPage", () => {
     expect(within(dialog).queryByLabelText("Transfer")).toBeNull();
   });
 
+  it("can start filtered to an account (arriving from Import)", async () => {
+    txs = [tx(1, "2026-11-05", -100, "In everyday"), tx(2, "2026-11-05", -200, "In bills")];
+    render(
+      <ToastProvider>
+        <TransactionsPage initialAccountId={1} />
+      </ToastProvider>,
+    );
+    expect(await screen.findByText("In everyday")).toBeInTheDocument();
+    expect(screen.queryByText("In bills")).toBeNull();
+    expect(screen.getByLabelText("Account")).toHaveValue("1");
+  });
+
   it("load failure shows a retry", async () => {
     m.countTransactions.mockRejectedValueOnce({ code: "locked", message: "the vault is locked" });
     const user = renderPage();

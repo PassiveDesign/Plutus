@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeftRight,
   ChartPie,
+  FileUp,
   LayoutDashboard,
   PiggyBank,
   Settings,
@@ -12,6 +13,7 @@ export type PageId =
   | "dashboard"
   | "accounts"
   | "transactions"
+  | "import"
   | "budgets"
   | "reports"
   | "settings";
@@ -48,6 +50,13 @@ export const PAGES: PageDef[] = [
     icon: ArrowLeftRight,
     summary: "Every transaction, with search, filters, categories and imports.",
     milestone: "M2",
+  },
+  {
+    id: "import",
+    label: "Import",
+    icon: FileUp,
+    summary: "Bring in transactions from your bank's CSV export.",
+    milestone: "M4",
   },
   {
     id: "budgets",

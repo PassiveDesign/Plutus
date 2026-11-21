@@ -94,6 +94,10 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `guess_payee` (csv crate). Commands `preview_bom_import(accountId,
   text)`, `commit_import(accountId, rows)`; TS types in `api.ts`. 96 core
   tests.
+- **Import screen done:** `src/pages/ImportPage.tsx` (sidebar "Import",
+  `FileUp`), reads the file with `file.text()`, previews, ticks `new` rows,
+  duplicates disabled, balance warnings, commit + "View in Transactions"
+  (AppShell passes `initialAccountId` to TransactionsPage). 111 UI tests.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -139,24 +143,18 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M4 — Import screen** (new sidebar page "Import", between Transactions and
-Budgets, icon `FileUp`):
-1. Account picker (active accounts) + file input (`accept=".csv"`), read
-   with `file.text()`, then `api.previewBomImport`. File errors (field
-   `file`) inline under the picker.
-2. Summary: "N new · N already imported · N possible matches · N before
-   opening date"; balance check: if `bank_balance` and it ≠
-   `balance_after`, warn ("Plutus will show $X but the bank file says $Y —
-   check the opening balance or earlier rows"); if `balance_breaks`, list
-   the lines ("the export may be missing rows near line N").
-3. Table (DataTable): checkbox, Date, Payee/Description, Amount, Bank
-   balance, Status badge. Defaults: new ticked; duplicate disabled
-   unticked; possible_match / before_opening unticked but tickable.
-4. "Import N transactions" → `api.commitImport(accountId, ticked rows
-   without status fields)` → toast "Imported N (skipped M)" → reset; offer
-   "View in Transactions" (navigate with that account filtered).
-Tests with a fake API like TransactionsPage.test.tsx; preview check in the
-browser harness (add the two commands to the mock). Then cut v0.4.0.
+1. **v0.4.0** is tagged once CI for the import screen is green (version
+   already bumped in the same push). Owner smoke test: install over v0.3.0
+   → unlock (v4 → v6 upgrade) → Import a real BoM export into the right
+   account → check statuses, balance check vs the bank, import → view in
+   Transactions (running balance should end at the bank's balance if the
+   opening balance/date are right) → import the same file again (all
+   "Already imported") → restart. If good: publish, tick M4.5. Ask the
+   owner for any rows that parsed oddly (descriptions only, no amounts).
+2. Then **M3 — Assign categories** (plan: `Transaction.category_id` in
+   `columns!()` — running-balance index moves to 14 since `import_key`
+   isn't selected; `TransactionInput.category_id`; bulk
+   `set_transaction_category`; picker + column + bulk action in the UI).
 
 ## Open questions for the owner
 

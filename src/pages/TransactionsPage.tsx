@@ -9,10 +9,15 @@ import { TransactionForm, TxVerb } from "./TransactionForm";
 
 export const PAGE_SIZE = 100;
 
-export function TransactionsPage() {
+type Props = {
+  /** Start filtered to this account (e.g. after an import). */
+  initialAccountId?: number | null;
+};
+
+export function TransactionsPage({ initialAccountId = null }: Props = {}) {
   const toast = useToast();
   const [accounts, setAccounts] = useState<Account[] | null>(null);
-  const [accountId, setAccountId] = useState<number | null>(null);
+  const [accountId, setAccountId] = useState<number | null>(initialAccountId);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [page, setPage] = useState(0);
