@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   PiggyBank,
   Settings,
+  Tags,
   Wallet,
 } from "lucide-react";
 
@@ -14,6 +15,7 @@ export type PageId =
   | "accounts"
   | "transactions"
   | "import"
+  | "categories"
   | "budgets"
   | "reports"
   | "settings";
@@ -57,6 +59,13 @@ export const PAGES: PageDef[] = [
     icon: FileUp,
     summary: "Bring in transactions from your bank's CSV export.",
     milestone: "M4",
+  },
+  {
+    id: "categories",
+    label: "Categories",
+    icon: Tags,
+    summary: "Income and expense categories used to group transactions.",
+    milestone: "M3",
   },
   {
     id: "budgets",

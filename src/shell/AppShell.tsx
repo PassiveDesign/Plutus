@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AccountsPage } from "../pages/AccountsPage";
+import { CategoriesPage } from "../pages/CategoriesPage";
 import { ImportPage } from "../pages/ImportPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { SettingsPage } from "../pages/SettingsPage";
@@ -48,6 +49,8 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
             <AccountsPage />
           ) : current === "transactions" ? (
             <TransactionsPage key={txAccount ?? "all"} initialAccountId={txAccount} />
+          ) : current === "categories" ? (
+            <CategoriesPage />
           ) : current === "import" ? (
             <ImportPage
               onViewTransactions={(id) => {

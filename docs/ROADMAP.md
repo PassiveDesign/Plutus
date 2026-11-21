@@ -47,7 +47,7 @@ Feature scope is a first draft — edit freely.
 ## M3 — Categories & rules
 
 - [x] Category tree (groups + categories), defaults seeded by migration (core + commands)
-- [ ] Categories page: add, rename, move, archive groups and categories
+- [x] Categories page: add, rename, move, archive groups and categories
 - [x] Assign/bulk-assign categories in the transactions table
 - [ ] Auto-categorisation rules (payee contains / amount matches → category)
 

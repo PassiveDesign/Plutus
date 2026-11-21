@@ -2,6 +2,7 @@
 //! categories. Defaults are seeded by migration 0005. Both levels are
 //! archived rather than deleted so past transactions keep their labels.
 
+use std::collections::HashMap;
 use std::fmt;
 
 use rusqlite::{OptionalExtension, Row, params};
@@ -384,6 +385,18 @@ pub fn set_archived(db: &Database, id: i64, archived: bool) -> Result<Category, 
     get(db, id)
 }
 
+/// Number of transactions per category (categories with none are absent).
+pub fn usage(db: &Database) -> Result<HashMap<i64, i64>, DbError> {
+    let mut stmt = db.conn().prepare(
+        "SELECT category_id, count(*) FROM transactions \
+         WHERE category_id IS NOT NULL GROUP BY category_id",
+    )?;
+    let out = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -623,6 +636,51 @@ mod tests {
             )
             .unwrap();
         assert_eq!(fk, 1);
+    }
+
+    #[test]
+    fn usage_counts_transactions_per_category() {
+        use crate::accounts::{self, AccountInput, AccountKind};
+        use crate::money::Money;
+        use crate::transactions::{self, TransactionInput};
+        let (_d, db) = db();
+        let a = accounts::create(
+            &db,
+            &AccountInput {
+                name: "Everyday".into(),
+                kind: AccountKind::Offset,
+                institution: None,
+                bsb: None,
+                account_number: None,
+                opening_balance: Money::ZERO,
+                opening_date: chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap(),
+                offset_for: None,
+                notes: None,
+            },
+        )
+        .unwrap()
+        .id;
+        let t = tree(&db, false).unwrap();
+        let groceries = group_named(&t, "Food").categories[0].id;
+        for cat in [Some(groceries), Some(groceries), None] {
+            transactions::add(
+                &db,
+                &TransactionInput {
+                    account_id: a,
+                    date: chrono::NaiveDate::from_ymd_opt(2026, 11, 5).unwrap(),
+                    amount: Money::from_cents(-100),
+                    payee: Some("x".into()),
+                    description: None,
+                    memo: None,
+                    cleared: false,
+                    category_id: cat,
+                },
+            )
+            .unwrap();
+        }
+        let u = usage(&db).unwrap();
+        assert_eq!(u.get(&groceries), Some(&2));
+        assert_eq!(u.len(), 1);
     }
 
     #[test]

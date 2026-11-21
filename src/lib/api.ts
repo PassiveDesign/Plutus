@@ -230,6 +230,8 @@ export const api = {
     invoke<ImportResult>("commit_import", { accountId, rows }),
   listCategories: (includeArchived = false) =>
     invoke<CategoryGroup[]>("list_categories", { includeArchived }),
+  /** Transactions per category id; unused categories are absent. */
+  categoryUsage: () => invoke<Record<string, number>>("category_usage"),
   createCategoryGroup: (input: GroupInput) =>
     invoke<CategoryGroup>("create_category_group", { input }),
   updateCategoryGroup: (id: number, input: GroupInput) =>

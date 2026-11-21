@@ -105,6 +105,11 @@ Rewritten at the end of every session. Read after AGENTS.md.
   (grouped picker + `categoryIndex`), category picker in TransactionForm,
   Category column, row selection + bulk bar on TransactionsPage (table now
   `table-layout: fixed`, payee/description cut to one line). 99 core, 115 UI.
+- **Categories page done:** sidebar "Categories" (`Tags`), groups as cards
+  (income first) with usage counts (`categories::usage` + command
+  `category_usage`), add/edit/move/archive/restore via
+  `src/pages/CategoryForms.tsx` (`GroupForm`, `CategoryForm`), "Show
+  archived (N)". 100 core, 122 UI tests.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -150,16 +155,19 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M3 — Categories page** (ROADMAP M3 item 2): new sidebar page
-"Categories" (icon `Tags`, after Import) or a Settings section — prefer a
-page. List groups (income first) with their categories; add group (name +
-income/expense), add category to a group, rename, move category to another
-group, archive/restore (show archived toggle). Commands already exist
-(`list_categories`, `create_category_group`, `update_category_group`,
-`set_category_group_archived`, `create_category`, `update_category`,
-`set_category_archived`). Show a count of transactions per category if
-cheap (would need a new `category_usage` command — optional).
-Then **auto-categorisation rules** (M3 item 3), then v0.5.0.
+**M3 — Auto-categorisation rules** (last M3 task, then v0.5.0):
+- Migration 0007 `category_rules` (id, match_field 'payee'|'description'|
+  'either', pattern TEXT (case-insensitive "contains"), optional
+  amount sign 'in'|'out'|NULL, category_id FK RESTRICT, priority/sort_order,
+  created_at). Core `rules` module: CRUD, `apply(db, ids or all
+  uncategorised)` → count; first matching rule by sort_order wins; never
+  overwrite an existing category; skip transfers.
+- Import: apply rules to newly imported rows inside `import::commit`
+  (and show the guessed category in the preview — `PreviewRow.category_id`).
+- UI: a "Rules" section on the Categories page (list, add/edit/delete,
+  reorder up/down), "Apply rules to uncategorised" button with a count
+  toast; quick "Create rule from this…" in the Transactions bulk bar
+  (prefill pattern from the payee) — optional if time is short.
 
 ## Open questions for the owner
 

@@ -275,6 +275,12 @@ async fn list_categories(
     .await
 }
 
+/// Transactions per category id (unused categories are absent).
+#[tauri::command]
+async fn category_usage(state: State<'_, AppState>) -> CmdResult<HashMap<i64, i64>> {
+    with_db(&state.vault, categories::usage).await
+}
+
 #[tauri::command]
 async fn create_category_group(
     state: State<'_, AppState>,
@@ -401,6 +407,7 @@ pub fn run() {
             create_transfer,
             update_transfer,
             list_categories,
+            category_usage,
             create_category_group,
             update_category_group,
             set_category_group_archived,
