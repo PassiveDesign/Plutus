@@ -99,6 +99,10 @@ pub struct BudgetLine {
     pub remaining: Option<Money>,
     /// The month the budget amount was set in (≤ this month).
     pub set_in: Option<Month>,
+    /// Unspent budget carried into this month (or overspending taken off);
+    /// always zero unless `rollover` is on.
+    pub carried: Money,
+    pub rollover: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -110,6 +114,8 @@ pub struct MonthBudget {
     pub total_budgeted: Money,
     /// Spending in budgeted categories.
     pub total_spent_budgeted: Money,
+    /// `total_budgeted − total_spent_budgeted` (carry-overs not included).
+    pub total_remaining: Money,
     /// Spending in expense categories without a budget.
     pub unbudgeted_spent: Money,
     /// Money out with no category (net of uncategorised refunds).
@@ -140,6 +146,73 @@ pub fn set(db: &Database, category_id: i64, month: Month, amount: Money) -> Resu
         params![category_id, month.to_string(), amount.cents()],
     )?;
     Ok(())
+}
+
+/// Turn rollover on or off for an expense category.
+pub fn set_rollover(db: &Database, category_id: i64, on: bool) -> Result<(), DbError> {
+    let n = db.conn().execute(
+        "UPDATE categories SET budget_rollover = ?1 WHERE id = ?2",
+        params![on, category_id],
+    )?;
+    if n == 0 {
+        return Err(invalid("category_id", "Category not found."));
+    }
+    Ok(())
+}
+
+/// Amount carried into `month` for a rollover category: walk every month
+/// from its first budget, adding budget − spent while it is budgeted and
+/// resetting to zero when it isn't.
+fn carried_into(db: &Database, category_id: i64, month: Month) -> Result<Money, DbError> {
+    let rows: Vec<(Month, i64)> = {
+        let mut stmt = db.conn().prepare(
+            "SELECT month, amount_cents FROM budgets WHERE category_id = ?1 AND month < ?2 ORDER BY month",
+        )?;
+        stmt.query_map(params![category_id, month.to_string()], |r| {
+            Ok((r.get::<_, String>(0)?, r.get(1)?))
+        })?
+        .map(|r| -> Result<(Month, i64), DbError> {
+            let (m, a) = r?;
+            Ok((m.parse()?, a))
+        })
+        .collect::<Result<_, _>>()?
+    };
+    let Some(&(first, _)) = rows.first() else {
+        return Ok(Money::ZERO);
+    };
+    let spent: HashMap<String, i64> = {
+        let mut stmt = db.conn().prepare(
+            "SELECT substr(date, 1, 7), -sum(amount_cents) FROM transactions \
+             WHERE category_id = ?1 AND transfer_id IS NULL AND date >= ?2 AND date < ?3 \
+             GROUP BY substr(date, 1, 7)",
+        )?;
+        stmt.query_map(
+            params![category_id, first.first_day(), month.first_day()],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )?
+        .collect::<Result<_, _>>()?
+    };
+    let mut carry: i64 = 0;
+    let mut budget: i64 = 0;
+    let mut next_row = 0;
+    let mut m = first;
+    while m < month {
+        while next_row < rows.len() && rows[next_row].0 <= m {
+            budget = rows[next_row].1;
+            next_row += 1;
+        }
+        carry = if budget == 0 {
+            0
+        } else {
+            let s = spent.get(&m.to_string()).copied().unwrap_or(0);
+            carry
+                .checked_add(budget)
+                .and_then(|c| c.checked_sub(s))
+                .ok_or_else(|| invalid("month", "The totals for this month are too large."))?
+        };
+        m = m.next();
+    }
+    Ok(Money::from_cents(carry))
 }
 
 /// Remove the change made in exactly `month` (the earlier amount, if any,
@@ -183,6 +256,13 @@ pub fn month(db: &Database, month: Month) -> Result<MonthBudget, DbError> {
         }
     }
 
+    let rollover: std::collections::HashSet<i64> = {
+        let mut stmt = db
+            .conn()
+            .prepare("SELECT id FROM categories WHERE budget_rollover = 1")?;
+        stmt.query_map([], |r| r.get(0))?
+            .collect::<Result<_, _>>()?
+    };
     let overflow = || invalid("month", "The totals for this month are too large.");
     let add = |a: Money, b: Money| a.checked_add(b).ok_or_else(overflow);
     let mut out = MonthBudget {
@@ -190,6 +270,7 @@ pub fn month(db: &Database, month: Month) -> Result<MonthBudget, DbError> {
         lines: Vec::new(),
         total_budgeted: Money::ZERO,
         total_spent_budgeted: Money::ZERO,
+        total_remaining: Money::ZERO,
         unbudgeted_spent: Money::ZERO,
         uncategorised_spent: Money::from_cents(-net.get(&None).copied().unwrap_or(0)),
         income: Money::ZERO,
@@ -208,8 +289,18 @@ pub fn month(db: &Database, month: Month) -> Result<MonthBudget, DbError> {
             if !active && budget.is_none() && amount == 0 {
                 continue;
             }
+            let rolls = rollover.contains(&c.id);
+            let carried = if rolls && budget.is_some() {
+                carried_into(db, c.id, month)?
+            } else {
+                Money::ZERO
+            };
             let remaining = match budget {
-                Some((b, _)) => Some(b.checked_sub(spent).ok_or_else(overflow)?),
+                Some((b, _)) => Some(
+                    b.checked_add(carried)
+                        .and_then(|x| x.checked_sub(spent))
+                        .ok_or_else(overflow)?,
+                ),
                 None => None,
             };
             match budget {
@@ -226,9 +317,15 @@ pub fn month(db: &Database, month: Month) -> Result<MonthBudget, DbError> {
                 spent,
                 remaining,
                 set_in: budget.map(|(_, m)| *m),
+                carried,
+                rollover: rolls,
             });
         }
     }
+    out.total_remaining = out
+        .total_budgeted
+        .checked_sub(out.total_spent_budgeted)
+        .ok_or_else(overflow)?;
     Ok(out)
 }
 
@@ -374,6 +471,7 @@ mod tests {
         );
         assert_eq!(b.total_budgeted, Money::from_cents(60_000));
         assert_eq!(b.total_spent_budgeted, Money::from_cents(58_000));
+        assert_eq!(b.total_remaining, Money::from_cents(2_000));
         assert_eq!(b.unbudgeted_spent, Money::from_cents(2_500));
         assert_eq!(b.uncategorised_spent, Money::from_cents(700));
         assert_eq!(b.income, Money::from_cents(300_000));
@@ -394,6 +492,62 @@ mod tests {
         let b = month(&db, m("2026-11")).unwrap();
         assert!(b.lines.iter().any(|l| l.category_id == pets));
         assert!(b.lines.iter().all(|l| l.category_id != kids));
+    }
+
+    #[test]
+    fn rollover_is_off_by_default_and_carries_when_on() {
+        let (_d, db, a) = setup();
+        let g = cat(&db, "Groceries");
+        set(&db, g, m("2026-09"), Money::from_cents(10_000)).unwrap();
+        spend(&db, a, "2026-09-10", -6_000, Some(g)); // 40 under
+        spend(&db, a, "2026-10-10", -13_000, Some(g)); // 30 over
+        let nov = |db: &Database| {
+            month(db, m("2026-11"))
+                .unwrap()
+                .lines
+                .into_iter()
+                .find(|l| l.category_id == g)
+                .unwrap()
+        };
+        let off = nov(&db);
+        assert_eq!(
+            (off.rollover, off.carried, off.remaining),
+            (false, Money::ZERO, Some(Money::from_cents(10_000)))
+        );
+
+        set_rollover(&db, g, true).unwrap();
+        let on = nov(&db);
+        assert!(on.rollover);
+        assert_eq!(on.carried, Money::from_cents(1_000)); // +40 −30
+        assert_eq!(on.remaining, Some(Money::from_cents(11_000)));
+        // Totals stay as budgeted (carry shows per line only).
+        assert_eq!(
+            month(&db, m("2026-11")).unwrap().total_budgeted,
+            Money::from_cents(10_000)
+        );
+
+        // A month without a budget resets the carry.
+        set(&db, g, m("2026-10"), Money::ZERO).unwrap();
+        set(&db, g, m("2026-11"), Money::from_cents(10_000)).unwrap();
+        assert_eq!(nov(&db).carried, Money::ZERO);
+        // First budgeted month carries nothing.
+        assert_eq!(
+            month(&db, m("2026-09"))
+                .unwrap()
+                .lines
+                .iter()
+                .find(|l| l.category_id == g)
+                .unwrap()
+                .carried,
+            Money::ZERO
+        );
+        assert!(matches!(
+            set_rollover(&db, 99_999, true),
+            Err(DbError::Invalid {
+                field: "category_id",
+                ..
+            })
+        ));
     }
 
     #[test]

@@ -124,6 +124,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `MonthBudget { lines: BudgetLine{category_id, group_id, budgeted,
   spent, remaining, set_in}, totals, uncategorised_spent, income }`).
   Commands `budget_month`, `set_budget`, `clear_budget`; TS types. 111 core.
+- **Budget page done (M5 complete):** migration 0009 (schema v9,
+  `categories.budget_rollover`), `budgets::set_rollover`, carry in
+  `BudgetLine.carried`, `MonthBudget.total_remaining`; command
+  `set_budget_rollover`. `src/pages/BudgetPage.tsx` (month switcher,
+  summary, grouped table, inline `BudgetEditor`, undo, rollover toggle,
+  progress bars); `formatMonth`/`addMonths`/`thisMonth` in dates.ts.
+  112 core, 136 UI tests.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -169,20 +176,18 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M5 — Budget page** (replace the Budgets placeholder):
-- Month switcher (‹ November 2026 ›, default this month).
-- Summary: Budgeted / Spent / Remaining for budgeted categories;
-  "Unbudgeted spending $X", "Uncategorised $Y" (link to Transactions),
-  "Income $Z".
-- Table grouped by category group (`listCategories(true)` for names):
-  Category, Budget (inline editable — click → input → Enter saves via
-  `parseMoney` then `setBudget`; hint "from Nov 2026 on"), Spent,
-  Remaining, progress bar (red when over). Empty budget shows "Set".
-  A small "↺" to undo a change made this month (`clearBudget`) when
-  `set_in === month`.
-- Ask the owner about rollover (carry unspent to next month) before
-  building it; record in DECISIONS.
-Then M5b (valuations) or M6 (dashboard) — ask the owner which first.
+**M6 — Dashboard** (owner chose dashboard/reports before valuations):
+- Core `reports` module: `net_worth(db, as_of)` (sum of balances of
+  active + archived accounts, liabilities negative; valued kinds use their
+  balance until M5b), `month_summary(db, month)` (income, spending, net,
+  top spending categories), `cash_flow(db, from, to)` per month.
+- Dashboard page replacing the placeholder: net worth (assets, debts,
+  net), this month's spending vs budget (from `budgets::month`), top 5
+  categories, account balances list, recent transactions (5). No chart
+  library yet — decide (recharts vs hand-rolled SVG) when charts arrive
+  in the Reports task; record in DECISIONS.
+Then Reports (spending by category chart, income vs expense over time,
+net worth over time), then cut v0.6.0.
 
 ## Open questions for the owner
 

@@ -430,6 +430,19 @@ async fn set_budget(
     .await
 }
 
+/// Turn budget rollover on or off for a category.
+#[tauri::command]
+async fn set_budget_rollover(
+    state: State<'_, AppState>,
+    category_id: i64,
+    on: bool,
+) -> CmdResult<()> {
+    with_db(&state.vault, move |db| {
+        budgets::set_rollover(db, category_id, on)
+    })
+    .await
+}
+
 /// Undo the budget change made in exactly `month`.
 #[tauri::command]
 async fn clear_budget(
@@ -500,7 +513,8 @@ pub fn run() {
             apply_rules,
             budget_month,
             set_budget,
-            clear_budget
+            clear_budget,
+            set_budget_rollover
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");

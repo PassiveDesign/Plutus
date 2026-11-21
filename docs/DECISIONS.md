@@ -148,5 +148,12 @@ Short, dated entries. Future sessions follow these without re-deciding.
   budgeting from that month; clearing a month's change reverts to the
   earlier amount. Expense categories only. Spent = money out minus refunds
   in the calendar month; transfers never count. Income is reported as a
-  total, not budgeted. Rollover (unspent carried to next month) is not
-  built yet — decide with the owner when the Budget page lands.
+  total, not budgeted. Rollover: see below.
+- **2026-11-21 — Rollover is a per-category option, off by default**
+  (owner: "shouldn't carry over by default but make it an option").
+  Migration 0009 adds `categories.budget_rollover`. With it on, each
+  budgeted month's budget − spent is carried into the next month (negative
+  when overspent); a month with no budget resets the carry. Month totals
+  exclude carry-overs; the line's `remaining` includes them.
+- **2026-11-21 — Order after budgets: dashboard & reports (M6) before
+  valuations (M5b)** (owner's choice).

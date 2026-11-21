@@ -938,3 +938,123 @@ button:disabled {
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+/* ---- Budget ---- */
+
+.budget {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.budget .toolbar {
+  gap: 0.5rem;
+}
+
+.budget-month {
+  margin: 0;
+  font-size: 1.2rem;
+  min-width: 11rem;
+  text-align: center;
+}
+
+.budget-summary {
+  display: flex;
+  gap: 2.5rem;
+}
+
+.budget-summary > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.budget-summary .muted {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.budget-summary .money {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.budget-extra {
+  margin: 0;
+}
+
+.budget-table .budget-group th {
+  text-align: left;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: var(--hover);
+}
+
+.budget-amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.link-btn,
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 0.15rem 0.25rem;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.link-btn {
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.link-btn:hover,
+.icon-btn:hover {
+  background: var(--hover);
+}
+
+.icon-btn {
+  color: var(--muted);
+  display: inline-flex;
+}
+
+.budget-edit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.budget-edit input {
+  width: 120px;
+  text-align: right;
+  height: 2rem;
+}
+
+.num-stack {
+  align-items: flex-end;
+}
+
+.budget-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--hover);
+  overflow: hidden;
+}
+
+.budget-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.budget-bar.over > span {
+  background: var(--danger, #c0392b);
+}

@@ -185,6 +185,9 @@ export type BudgetLine = {
   remaining: number | null;
   /** Month the amount was set in (it carries forward until changed). */
   set_in: Month | null;
+  /** Unspent (or overspent, negative) budget brought in; 0 unless rollover. */
+  carried: number;
+  rollover: boolean;
 };
 
 export type MonthBudget = {
@@ -192,6 +195,7 @@ export type MonthBudget = {
   lines: BudgetLine[];
   total_budgeted: number;
   total_spent_budgeted: number;
+  total_remaining: number;
   unbudgeted_spent: number;
   uncategorised_spent: number;
   income: number;
@@ -281,6 +285,8 @@ export const api = {
   /** Applies from `month` onwards until changed; 0 stops budgeting. */
   setBudget: (categoryId: number, month: Month, amount: number) =>
     invoke<void>("set_budget", { categoryId, month, amount }),
+  setBudgetRollover: (categoryId: number, on: boolean) =>
+    invoke<void>("set_budget_rollover", { categoryId, on }),
   /** Undo the change made in exactly `month`. */
   clearBudget: (categoryId: number, month: Month) => invoke<void>("clear_budget", { categoryId, month }),
   listCategories: (includeArchived = false) =>

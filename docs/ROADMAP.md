@@ -69,7 +69,7 @@ Feature scope is a first draft — edit freely.
 ## M5 — Budgets
 
 - [x] Monthly budget per category: schema + commands
-- [ ] Budget page: budgeted vs spent, remaining, rollover option
+- [x] Budget page: budgeted vs spent, remaining, rollover option (per category, off by default)
 
 ## M5b — Valuations (super, shares, investments, property)
 
