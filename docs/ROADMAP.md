@@ -90,6 +90,7 @@ Feature scope is a first draft — edit freely.
 
 - [x] Cut `v0.7.0` (backup / restore); verify v9 → v9 upgrade (draft release
       built 2026-11-21; awaiting owner smoke test)
+- [ ] Cut `v0.8.0` (CSV export); verify v9 → v9 upgrade
 
 - [x] Backup / restore the database file from Settings (backups beside the
       database; restore keeps a pre-restore copy)

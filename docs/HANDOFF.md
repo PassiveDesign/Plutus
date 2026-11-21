@@ -26,9 +26,12 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. Cut v0.8.0 with the CSV export (bump the three version files, tag, publish).
-2. Remaining M7: auto-lock after idle (optional) — or move to M4 import polish.
-3. Owner smoke test of v0.7.0/v0.8.0: budgets, dashboard, reports, backup + restore, export.
+1. v0.8.0 is tagged and building (CSV export). When the draft release is ready,
+   owner smoke test: budgets, dashboard, reports, backup + restore, export.
+   If good, publish with `gh release edit v0.8.0 --draft=false --latest`.
+2. Remaining M7: auto-lock after idle (optional; the owner has not asked for it).
+3. Next milestone by the roadmap: M4 import (Bank of Melbourne CSV) — the owner
+   already supplied a real header + one line, so the importer can start.
 
 ## Open questions for the owner
 
