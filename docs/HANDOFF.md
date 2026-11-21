@@ -118,6 +118,12 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `delete_rule`, `move_rule`, `apply_rules`. UI: `src/pages/RulesSection.tsx`
   (section at the top of Categories, `RuleForm`, `describeRule`), Category
   column in the import preview. 105 core, 128 UI tests. Version 0.5.0.
+- **v0.5.0 published.**
+- **Budgets core done:** migration 0008 (schema v8, `budgets`),
+  `plutus-core::budgets` (`Month` "YYYY-MM", `set`, `clear`, `month` →
+  `MonthBudget { lines: BudgetLine{category_id, group_id, budgeted,
+  spent, remaining, set_in}, totals, uncategorised_spent, income }`).
+  Commands `budget_month`, `set_budget`, `clear_budget`; TS types. 111 core.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -163,20 +169,20 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. **v0.5.0** is tagged automatically if CI passes (version bumped in the
-   same push). Owner smoke test: install over v0.4.0 → unlock (v6 → v7)
-   → Categories page: rename/archive something, add a couple of rules
-   (e.g. "woolworths" → Groceries), Apply to uncategorised → Transactions:
-   category column, set a category in the form, bulk-set a few → import a
-   new export: rule categories in the preview and after import → restart.
-   If good: publish, tick M3.5.
-2. Then **M5 — Budgets** (schema + commands first): monthly budget per
-   expense category (`budgets` table: category_id, month 'YYYY-MM',
-   amount_cents; or a default amount per category with per-month
-   overrides — decide and record in DECISIONS), spent = −sum of
-   transactions in the month for that category.
-   Optional quick win before M5: "Create rule…" from the Transactions bulk
-   bar (prefill pattern with the selected payee).
+**M5 — Budget page** (replace the Budgets placeholder):
+- Month switcher (‹ November 2026 ›, default this month).
+- Summary: Budgeted / Spent / Remaining for budgeted categories;
+  "Unbudgeted spending $X", "Uncategorised $Y" (link to Transactions),
+  "Income $Z".
+- Table grouped by category group (`listCategories(true)` for names):
+  Category, Budget (inline editable — click → input → Enter saves via
+  `parseMoney` then `setBudget`; hint "from Nov 2026 on"), Spent,
+  Remaining, progress bar (red when over). Empty budget shows "Set".
+  A small "↺" to undo a change made this month (`clearBudget`) when
+  `set_in === month`.
+- Ask the owner about rollover (carry unspent to next month) before
+  building it; record in DECISIONS.
+Then M5b (valuations) or M6 (dashboard) — ask the owner which first.
 
 ## Open questions for the owner
 

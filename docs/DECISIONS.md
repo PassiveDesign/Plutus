@@ -142,3 +142,11 @@ Short, dated entries. Future sessions follow these without re-deciding.
   in the preview) and on demand ("Apply to uncategorised"). No regexes:
   simpler to explain, and enough for bank text. Rules can be deleted (they
   are settings, not history).
+- **2026-11-21 — Budgets carry forward.** A budget amount set for a month
+  applies to that month and every later month until changed (one row per
+  change in `budgets`, migration 0008), so the owner sets it once. 0 stops
+  budgeting from that month; clearing a month's change reverts to the
+  earlier amount. Expense categories only. Spent = money out minus refunds
+  in the calendar month; transfers never count. Income is reported as a
+  total, not budgeted. Rollover (unspent carried to next month) is not
+  built yet — decide with the owner when the Budget page lands.

@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use plutus_core::{
     Account, AccountInput, Category, CategoryGroup, CategoryInput, Database, DbError, GroupInput,
     LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction, TransactionInput,
-    TransactionQuery, Transfer, TransferInput, Vault, accounts, categories, import, rules,
+    TransactionQuery, Transfer, TransferInput, Vault, accounts, budgets, categories, import, rules,
     transactions, transfers,
 };
 use serde::Serialize;
@@ -407,6 +407,42 @@ async fn apply_rules(state: State<'_, AppState>) -> CmdResult<usize> {
     with_db(&state.vault, |db| rules::apply(db, None)).await
 }
 
+/// Budgeted vs spent for every expense category in a month (`YYYY-MM`).
+#[tauri::command]
+async fn budget_month(
+    state: State<'_, AppState>,
+    month: budgets::Month,
+) -> CmdResult<budgets::MonthBudget> {
+    with_db(&state.vault, move |db| budgets::month(db, month)).await
+}
+
+/// Set a category's monthly budget from `month` onwards (0 stops it).
+#[tauri::command]
+async fn set_budget(
+    state: State<'_, AppState>,
+    category_id: i64,
+    month: budgets::Month,
+    amount: Money,
+) -> CmdResult<()> {
+    with_db(&state.vault, move |db| {
+        budgets::set(db, category_id, month, amount)
+    })
+    .await
+}
+
+/// Undo the budget change made in exactly `month`.
+#[tauri::command]
+async fn clear_budget(
+    state: State<'_, AppState>,
+    category_id: i64,
+    month: budgets::Month,
+) -> CmdResult<()> {
+    with_db(&state.vault, move |db| {
+        budgets::clear(db, category_id, month)
+    })
+    .await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -461,7 +497,10 @@ pub fn run() {
             update_rule,
             delete_rule,
             move_rule,
-            apply_rules
+            apply_rules,
+            budget_month,
+            set_budget,
+            clear_budget
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -791,6 +830,44 @@ mod tests {
                 .await
                 .unwrap_err();
             assert_eq!(e.field, Some("pattern"));
+        });
+    }
+
+    #[test]
+    fn budget_commands_set_and_report() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let g = with_db(&vault, |db| categories::tree(db, false))
+                .await
+                .unwrap()
+                .into_iter()
+                .flat_map(|g| g.categories)
+                .find(|c| c.name == "Groceries")
+                .unwrap()
+                .id;
+            let month: budgets::Month =
+                serde_json::from_value(serde_json::json!("2026-11")).unwrap();
+            with_db(&vault, move |db| {
+                budgets::set(db, g, month, Money::from_cents(50_000))
+            })
+            .await
+            .unwrap();
+            let b = with_db(&vault, move |db| budgets::month(db, month))
+                .await
+                .unwrap();
+            let v = serde_json::to_value(&b).unwrap();
+            assert_eq!(v["total_budgeted"], 50_000);
+            let e = with_db(&vault, move |db| {
+                budgets::set(db, g, month, Money::from_cents(-1))
+            })
+            .await
+            .unwrap_err();
+            assert_eq!(e.field, Some("amount"));
+            assert!(
+                serde_json::from_value::<budgets::Month>(serde_json::json!("2026-13")).is_err()
+            );
         });
     }
 }

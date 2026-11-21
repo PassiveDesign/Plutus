@@ -4,6 +4,7 @@
 //! verified on any host with just a Rust toolchain.
 
 pub mod accounts;
+pub mod budgets;
 pub mod categories;
 pub mod db;
 pub mod import;

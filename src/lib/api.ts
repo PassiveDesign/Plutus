@@ -171,6 +171,32 @@ export type RuleInput = {
 
 export type Rule = RuleInput & { id: number; sort_order: number };
 
+/** A calendar month, "YYYY-MM". */
+export type Month = string;
+
+export type BudgetLine = {
+  category_id: number;
+  group_id: number;
+  /** Cents; null when no budget applies this month. */
+  budgeted: number | null;
+  /** Money out minus refunds (cents). */
+  spent: number;
+  /** budgeted − spent; negative = over budget. */
+  remaining: number | null;
+  /** Month the amount was set in (it carries forward until changed). */
+  set_in: Month | null;
+};
+
+export type MonthBudget = {
+  month: Month;
+  lines: BudgetLine[];
+  total_budgeted: number;
+  total_spent_budgeted: number;
+  unbudgeted_spent: number;
+  uncategorised_spent: number;
+  income: number;
+};
+
 export type GroupKind = "income" | "expense";
 
 export type Category = {
@@ -251,6 +277,12 @@ export const api = {
   moveRule: (id: number, up: boolean) => invoke<Rule[]>("move_rule", { id, up }),
   /** Categorise uncategorised transactions; resolves to how many changed. */
   applyRules: () => invoke<number>("apply_rules"),
+  budgetMonth: (month: Month) => invoke<MonthBudget>("budget_month", { month }),
+  /** Applies from `month` onwards until changed; 0 stops budgeting. */
+  setBudget: (categoryId: number, month: Month, amount: number) =>
+    invoke<void>("set_budget", { categoryId, month, amount }),
+  /** Undo the change made in exactly `month`. */
+  clearBudget: (categoryId: number, month: Month) => invoke<void>("clear_budget", { categoryId, month }),
   listCategories: (includeArchived = false) =>
     invoke<CategoryGroup[]>("list_categories", { includeArchived }),
   /** Transactions per category id; unused categories are absent. */

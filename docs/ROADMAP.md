@@ -64,11 +64,11 @@ Feature scope is a first draft — edit freely.
 
 ## M3.5 — Release
 
-- [ ] Cut `v0.5.0` (category assignment, Categories page, rules); verify v6 → v7 upgrade
+- [x] Cut `v0.5.0` (category assignment, Categories page, rules); verify v6 → v7 upgrade
 
 ## M5 — Budgets
 
-- [ ] Monthly budget per category: schema + commands
+- [x] Monthly budget per category: schema + commands
 - [ ] Budget page: budgeted vs spent, remaining, rollover option
 
 ## M5b — Valuations (super, shares, investments, property)
