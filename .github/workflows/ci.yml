@@ -10,21 +10,59 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Check (${{ matrix.platform }})
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-22.04, windows-latest]
-    runs-on: ${{ matrix.platform }}
+  # Linux checks run on the self-hosted runner (label `plutus`), so they cost
+  # no GitHub-hosted minutes and work even when the account's Actions spending
+  # limit is exhausted. The runner already has the GTK/WebKit dev packages.
+  check-linux:
+    name: Check (linux)
+    runs-on: [self-hosted, linux, x64, plutus]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Linux system dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev pkg-config
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend (type-check + bundle)
+        run: npm run build
+
+      - name: Frontend tests
+        run: npm test
+
+      - name: cargo fmt
+        working-directory: src-tauri
+        run: cargo fmt --all --check
+
+      - name: cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test --workspace
+
+  # Windows needs a GitHub-hosted runner (a Tauri Windows build cannot be
+  # cross-compiled from Linux). Set the repo variable WINDOWS_CI=true to turn
+  # this job on; leave it unset while the account's Actions spending limit is
+  # exhausted, so CI stays green on Linux instead of failing at startup.
+  check-windows:
+    name: Check (windows)
+    if: vars.WINDOWS_CI == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
