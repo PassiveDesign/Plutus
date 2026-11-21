@@ -215,6 +215,23 @@ export type Dashboard = {
   recent: Transaction[];
 };
 
+export type MonthRow = {
+  month: Month;
+  income: number;
+  spending: number;
+  net: number;
+  /** Net worth at month end. */
+  net_worth: number;
+};
+
+export type Report = {
+  from: Month;
+  to: Month;
+  months: MonthRow[];
+  spending_by_category: { category_id: number | null; spent: number }[];
+  totals: { income: number; spending: number; net: number };
+};
+
 export type GroupKind = "income" | "expense";
 
 export type Category = {
@@ -304,6 +321,8 @@ export const api = {
   /** Undo the change made in exactly `month`. */
   clearBudget: (categoryId: number, month: Month) => invoke<void>("clear_budget", { categoryId, month }),
   dashboard: (month: Month) => invoke<Dashboard>("dashboard", { month }),
+  /** Both months inclusive; at most 10 years. */
+  report: (from: Month, to: Month) => invoke<Report>("report", { from, to }),
   listCategories: (includeArchived = false) =>
     invoke<CategoryGroup[]>("list_categories", { includeArchived }),
   /** Transactions per category id; unused categories are absent. */

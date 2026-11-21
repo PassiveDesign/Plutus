@@ -163,3 +163,9 @@ Short, dated entries. Future sessions follow these without re-deciding.
   (refunds count as income in these totals). Spending by category = net
   per expense category (refunds offset spending) plus uncategorised money
   out only (uncategorised money in isn't treated as a refund).
+- **2026-11-21 — Charts are hand-rolled SVG** (`src/components/Charts.tsx`:
+  `PairedBarChart`, `LineChart`), no chart library: smaller installer,
+  matching style, and each chart carries a visually hidden data table for
+  screen readers. The net-worth line scales to the data (not forced to
+  include $0) so a mortgage doesn't flatten the trend. Net worth history
+  counts each account from its opening date.

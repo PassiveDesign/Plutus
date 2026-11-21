@@ -465,6 +465,16 @@ async fn dashboard(
     with_db(&state.vault, move |db| reports::dashboard(db, month)).await
 }
 
+/// Month-by-month figures and spending by category for a range of months.
+#[tauri::command]
+async fn report(
+    state: State<'_, AppState>,
+    from: budgets::Month,
+    to: budgets::Month,
+) -> CmdResult<reports::Report> {
+    with_db(&state.vault, move |db| reports::report(db, from, to)).await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -524,7 +534,8 @@ pub fn run() {
             set_budget,
             clear_budget,
             set_budget_rollover,
-            dashboard
+            dashboard,
+            report
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -925,6 +936,33 @@ mod tests {
                 .await
                 .unwrap_err();
             assert_eq!(e.field, Some("category_id"));
+        });
+    }
+
+    #[test]
+    fn report_command_checks_the_range() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let m = |s: &str| -> budgets::Month {
+                serde_json::from_value(serde_json::json!(s)).unwrap()
+            };
+            let (a, b) = (m("2026-10"), m("2026-11"));
+            let r = with_db(&vault, move |db| reports::report(db, a, b))
+                .await
+                .unwrap();
+            assert_eq!(
+                serde_json::to_value(&r).unwrap()["months"]
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                2
+            );
+            let e = with_db(&vault, move |db| reports::report(db, b, a))
+                .await
+                .unwrap_err();
+            assert_eq!(e.field, Some("to"));
         });
     }
 }

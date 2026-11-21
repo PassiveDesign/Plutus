@@ -1203,3 +1203,98 @@ button:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- Reports & charts ---- */
+
+.reports {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.reports-range {
+  align-self: flex-end;
+  line-height: 2.75rem;
+  margin: 0;
+}
+
+.chart {
+  margin: 0.25rem 0 0;
+}
+
+.chart svg {
+  width: 100%;
+  max-width: 860px;
+  height: auto;
+  display: block;
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-zero {
+  stroke: var(--muted);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-axis {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-dot {
+  fill: var(--accent);
+}
+
+.chart-dot.negative {
+  fill: var(--danger);
+}
+
+.bar-income,
+.swatch.bar-income {
+  fill: var(--accent);
+  background: var(--accent);
+}
+
+.bar-spending,
+.swatch.bar-spending {
+  fill: var(--danger);
+  background: var(--danger);
+  opacity: 0.8;
+}
+
+.chart-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+.report-bars li {
+  grid-template-columns: minmax(0, 11rem) 1fr 3rem 7.5rem;
+}
+
+.report-pct {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

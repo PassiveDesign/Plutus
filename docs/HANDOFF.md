@@ -136,6 +136,12 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `src/pages/DashboardPage.tsx` (net worth / this month / budget cards,
   top spending bars, accounts → Transactions filtered, recent 5, empty
   states). AppShell has `openAccount(id)`. 115 core, 140 UI, 14 shell.
+- **Reports done (M6 complete):** `reports::report(from, to)` →
+  `Report { months: MonthRow{income, spending, net, net_worth}, spending_by_category,
+  totals }` (max 120 months); command `report`; `src/components/Charts.tsx`;
+  `src/pages/ReportsPage.tsx` (period picker, totals, income vs spending
+  bars, net worth line, category bars with %). 117 core, 146 UI, 15 shell.
+  Version 0.6.0.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -181,18 +187,18 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M6 — Reports page** (replace the Reports placeholder), then cut v0.6.0:
-- Decide charts: hand-rolled SVG (no dependency, small) vs recharts
-  (~100 kB gz). Prefer hand-rolled SVG bars/lines; record in DECISIONS.
-- Core: `reports::monthly(db, from: Month, to: Month)` →
-  per month {income, spending, net} (reuse `totals`); `net_worth_history`
-  (balance per month end: opening balances + transactions up to the date,
-  accounts counted from their opening date); `spending_by_category` for a
-  range already exists.
-- Page: range picker (last 6 / 12 months / this year), spending by
-  category (horizontal bars + table, click → Transactions filtered by
-  category… needs a category filter on Transactions — add it), income vs
-  spending per month (paired bars), net worth over time (line).
+1. **v0.6.0** is tagged automatically if CI passes. Owner smoke test:
+   install over v0.5.0 → unlock (v7 → v9) → Budgets: set a few, edit
+   inline, rollover on one, switch months → Dashboard figures look right
+   (net worth vs bank/loan statements) → Reports: each period, charts,
+   category list → restart. If good: publish, tick M6.5.
+2. Then ask the owner: **M5b valuations** (super/shares/property values
+   over time, so net worth includes them) or **M7 data safety** (backup /
+   restore, CSV export, auto-lock) next. Recommend M7 backup first: the
+   only copy of their data is one encrypted file.
+   Small follow-ups noted: category filter on Transactions (click a
+   category in Reports → its transactions); "Create rule…" from the bulk
+   bar.
 
 ## Open questions for the owner
 

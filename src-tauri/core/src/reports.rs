@@ -136,6 +136,112 @@ pub fn spending_by_category(
     Ok(out)
 }
 
+/// Longest range a report covers.
+pub const MAX_REPORT_MONTHS: usize = 120;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct MonthRow {
+    pub month: Month,
+    pub income: Money,
+    pub spending: Money,
+    pub net: Money,
+    /// Net worth at the end of the month (accounts count from their
+    /// opening date).
+    pub net_worth: Money,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Report {
+    pub from: Month,
+    pub to: Month,
+    /// One row per month, oldest first.
+    pub months: Vec<MonthRow>,
+    /// Over the whole range, largest first.
+    pub spending_by_category: Vec<CategorySpend>,
+    pub totals: MonthTotals,
+}
+
+fn months_between(from: Month, to: Month) -> Result<Vec<Month>, DbError> {
+    if to < from {
+        return Err(invalid("to", "The end month is before the start month."));
+    }
+    let mut out = vec![from];
+    while *out.last().unwrap() < to {
+        if out.len() >= MAX_REPORT_MONTHS {
+            return Err(invalid("to", "Reports cover at most 10 years."));
+        }
+        out.push(out.last().unwrap().next());
+    }
+    Ok(out)
+}
+
+/// Net worth at the end of each month: for every account open by then,
+/// opening balance + transactions from its opening date up to month end.
+fn net_worth_by_month(db: &Database, months: &[Month]) -> Result<Vec<Money>, DbError> {
+    // (account, opening date, opening cents)
+    let accts: Vec<(i64, NaiveDate, i64)> = {
+        let mut stmt = db
+            .conn()
+            .prepare("SELECT id, opening_date, opening_balance_cents FROM accounts")?;
+        stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<Result<_, _>>()?
+    };
+    let last_end = months.last().map(|m| m.next().first_day());
+    let mut out = vec![0i64; months.len()];
+    for (id, opened, opening) in accts {
+        // Movements per month from the opening date (dates before it are in
+        // the opening balance).
+        let mut stmt = db.conn().prepare(
+            "SELECT substr(date, 1, 7), sum(amount_cents) FROM transactions \
+             WHERE account_id = ?1 AND date >= ?2 AND date < ?3 GROUP BY substr(date, 1, 7) ORDER BY 1",
+        )?;
+        let moves: Vec<(String, i64)> = stmt
+            .query_map(params![id, opened, last_end], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })?
+            .collect::<Result<_, _>>()?;
+        let mut running = opening;
+        let mut k = 0;
+        for (i, m) in months.iter().enumerate() {
+            let key = m.to_string();
+            while k < moves.len() && moves[k].0 <= key {
+                running = running.checked_add(moves[k].1).ok_or_else(overflow)?;
+                k += 1;
+            }
+            if opened < m.next().first_day() {
+                out[i] = out[i].checked_add(running).ok_or_else(overflow)?;
+            }
+        }
+    }
+    Ok(out.into_iter().map(Money::from_cents).collect())
+}
+
+/// Month-by-month income, spending and net worth, and spending by category
+/// over the range (both months inclusive).
+pub fn report(db: &Database, from: Month, to: Month) -> Result<Report, DbError> {
+    let months = months_between(from, to)?;
+    let worth = net_worth_by_month(db, &months)?;
+    let mut rows = Vec::with_capacity(months.len());
+    for (m, nw) in months.iter().zip(worth) {
+        let t = totals(db, m.first_day(), m.next().first_day())?;
+        rows.push(MonthRow {
+            month: *m,
+            income: t.income,
+            spending: t.spending,
+            net: t.net,
+            net_worth: nw,
+        });
+    }
+    let (start, end) = (from.first_day(), to.next().first_day());
+    Ok(Report {
+        from,
+        to,
+        months: rows,
+        spending_by_category: spending_by_category(db, start, end)?,
+        totals: totals(db, start, end)?,
+    })
+}
+
 pub fn dashboard(db: &Database, month: Month) -> Result<Dashboard, DbError> {
     let (from, to) = (month.first_day(), month.next().first_day());
     let mut top = spending_by_category(db, from, to)?;
@@ -280,6 +386,92 @@ mod tests {
                 .collect::<Vec<_>>(),
             [(Some(g), 33_000), (Some(fuel), 6_000), (None, 1_000)]
         );
+    }
+
+    #[test]
+    fn report_rows_and_net_worth_history() {
+        let (_d, db) = setup();
+        let a = account(&db, "Everyday", AccountKind::Offset, 100_000); // opened 2026-01-01
+        let late = accounts::create(
+            &db,
+            &AccountInput {
+                name: "Loan".into(),
+                kind: AccountKind::Loan,
+                institution: None,
+                bsb: None,
+                account_number: None,
+                opening_balance: Money::from_cents(-500_000),
+                opening_date: d("2026-10-15"),
+                offset_for: None,
+                notes: None,
+            },
+        )
+        .unwrap()
+        .id;
+        let g = cat(&db, "Groceries");
+        tx(&db, a, "2026-09-05", 300_000, None);
+        tx(&db, a, "2026-09-10", -20_000, Some(g));
+        tx(&db, a, "2026-11-03", -5_000, Some(g));
+        tx(&db, late, "2026-10-01", -99_999, None); // before the loan's opening date
+        tx(&db, late, "2026-11-01", 50_000, None);
+
+        let r = report(&db, "2026-08".parse().unwrap(), "2026-11".parse().unwrap()).unwrap();
+        let rows: Vec<_> = r
+            .months
+            .iter()
+            .map(|m| {
+                (
+                    m.month.to_string(),
+                    m.income.cents(),
+                    m.spending.cents(),
+                    m.net_worth.cents(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                ("2026-08".into(), 0, 0, 100_000),
+                ("2026-09".into(), 300_000, 20_000, 380_000),
+                ("2026-10".into(), 0, 99_999, 380_000 - 500_000),
+                ("2026-11".into(), 50_000, 5_000, 375_000 - 450_000),
+            ]
+        );
+        let by: Vec<_> = r
+            .spending_by_category
+            .iter()
+            .map(|c| (c.category_id, c.spent.cents()))
+            .collect();
+        assert_eq!(by, [(None, 99_999), (Some(g), 25_000)]);
+        assert_eq!(r.totals.income, Money::from_cents(350_000));
+        // The last row agrees with today's net worth.
+        assert_eq!(
+            r.months.last().unwrap().net_worth,
+            net_worth(&db).unwrap().net
+        );
+    }
+
+    #[test]
+    fn report_range_limits() {
+        let (_d, db) = setup();
+        let m = |s: &str| s.parse::<Month>().unwrap();
+        assert!(matches!(
+            report(&db, m("2026-11"), m("2026-10")),
+            Err(DbError::Invalid { field: "to", .. })
+        ));
+        assert!(matches!(
+            report(&db, m("2000-01"), m("2026-10")),
+            Err(DbError::Invalid { field: "to", .. })
+        ));
+        assert_eq!(
+            report(&db, m("2026-11"), m("2026-11"))
+                .unwrap()
+                .months
+                .len(),
+            1
+        );
+        let v = serde_json::to_value(report(&db, m("2026-10"), m("2026-11")).unwrap()).unwrap();
+        assert_eq!(v["months"][1]["month"], "2026-11");
     }
 
     #[test]
