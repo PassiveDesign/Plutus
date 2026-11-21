@@ -1155,9 +1155,11 @@ mod tests {
             .await
             .unwrap();
             assert_eq!(p.rows.len(), 1);
-            // `PreviewRow` flattens the parsed row, so the fields live on `row`.
-            assert_eq!(p.rows[0].row.amount.cents(), -650);
-            assert_eq!(p.rows[0].row.date.to_string(), "2026-11-18");
+            // Both wrappers flatten: PreviewRow.row is an ImportRow, whose
+            // `row` is the parsed row where amount/date live.
+            let parsed = &p.rows[0].row.row;
+            assert_eq!(parsed.amount.cents(), -650);
+            assert_eq!(parsed.date.to_string(), "2026-11-18");
 
             let rows: Vec<import::ImportRow> =
                 serde_json::from_value(serde_json::to_value(&p.rows).unwrap()).unwrap();

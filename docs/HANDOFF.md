@@ -51,9 +51,12 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Environment notes
 
-- Dev host lacks GTK/WebKit `-dev` packages (owner will install later), so
-  only `plutus-core` compiles locally (`cargo test -p plutus-core`); the
-  Tauri shell compiles in CI.
+- The dev host now HAS the GTK/WebKit dev packages (webkit2gtk-4.1, gtk+-3.0
+  and libsoup-3.0 all resolve in pkg-config), so the Tauri shell crate can be
+  checked locally: `cd src-tauri && cargo clippy -p plutus --all-targets -- -D
+  warnings`. The first run builds Tauri and is slow, but it catches
+  shell-only mistakes before they cost a CI round trip. `cargo test -p
+  plutus-core` stays the fast inner loop.
 - Cold `plutus-core` build takes ~80s (SQLCipher + vendored OpenSSL).
 - `gh` lives at `~/.local/bin/gh`; Rust via rustup in `~/.cargo`.
 
