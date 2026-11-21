@@ -50,8 +50,9 @@ Feature scope is a first draft — edit freely.
 ## M4 — Import (Bank of Melbourne first)
 
 - [x] Get a Bank of Melbourne CSV header row + date/amount format from the owner (no real transactions) and write synthetic fixtures — see `src-tauri/core/tests/fixtures/bank_of_melbourne/README.md`
-- [ ] Bank of Melbourne CSV importer (built-in preset) with preview before commit
-- [ ] Duplicate detection on import (date + amount + description hash; overlapping exports are expected)
+- [x] Bank of Melbourne CSV importer: parse + preview + commit (core + commands)
+- [ ] Import screen: choose file and account, preview with statuses, Import
+- [x] Duplicate detection on import (import key = date + amount + description + occurrence; flags hand-entered look-alikes)
 - [ ] Generic CSV import with column mapping, saved as reusable presets
 - [ ] OFX/QFX and QIF import (only if the bank's export menu offers them)
 - [ ] Optional: PDF statement import (for history beyond the online-banking export window)

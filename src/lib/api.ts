@@ -116,6 +116,42 @@ export type TransferInput = {
 
 export type Transfer = { id: number; from: Transaction; to: Transaction };
 
+export type ImportRow = {
+  /** 1-based line in the file. */
+  line: number;
+  date: string;
+  /** Signed cents, money in positive. */
+  amount: number;
+  description: string;
+  payee: string | null;
+  /** Bank's balance after this row (cents). */
+  balance: number | null;
+  import_key: string;
+};
+
+/** new = imported by default; duplicate = already imported (always skipped);
+ *  possible_match / before_opening = skipped unless the owner ticks them. */
+export type ImportStatus = "new" | "duplicate" | "possible_match" | "before_opening";
+
+export type ImportPreviewRow = ImportRow & {
+  status: ImportStatus;
+  matched_transaction_id: number | null;
+};
+
+export type ImportPreview = {
+  account_id: number;
+  rows: ImportPreviewRow[];
+  order: "newest_first" | "oldest_first" | "unknown";
+  /** Lines whose balance doesn't follow from the previous row's. */
+  balance_breaks: number[];
+  bank_balance: number | null;
+  current_balance: number;
+  /** Plutus balance if the `new` rows are imported. */
+  balance_after: number;
+};
+
+export type ImportResult = { imported: number; skipped: number };
+
 export type GroupKind = "income" | "expense";
 
 export type Category = {
@@ -184,6 +220,11 @@ export const api = {
     invoke<Transaction>("update_transaction", { id, input }),
   /** Deleting either leg of a transfer deletes both. */
   deleteTransaction: (id: number) => invoke<void>("delete_transaction", { id }),
+  previewBomImport: (accountId: number, text: string) =>
+    invoke<ImportPreview>("preview_bom_import", { accountId, text }),
+  /** Send back the preview rows to import (as received, minus `status`). */
+  commitImport: (accountId: number, rows: ImportRow[]) =>
+    invoke<ImportResult>("commit_import", { accountId, rows }),
   listCategories: (includeArchived = false) =>
     invoke<CategoryGroup[]>("list_categories", { includeArchived }),
   createCategoryGroup: (input: GroupInput) =>

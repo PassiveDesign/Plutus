@@ -88,6 +88,12 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `update_category_group`, `set_category_group_archived`,
   `create_category`, `update_category`, `set_category_archived`; TS types +
   wrappers in `api.ts`. No UI yet. 84 core tests.
+- **BoM import core done:** migration 0006 (schema v6, `import_key`),
+  `plutus-core::import` (`ParsedRow`, `ImportRow`, `RowStatus`,
+  `Preview`, `preview`, `commit`, `keys`) and `import::bom::parse` /
+  `guess_payee` (csv crate). Commands `preview_bom_import(accountId,
+  text)`, `commit_import(accountId, rows)`; TS types in `api.ts`. 96 core
+  tests.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -133,24 +139,24 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M4 — Bank of Melbourne CSV importer (core first):** format notes and a
-synthetic fixture are in `src-tauri/core/tests/fixtures/bank_of_melbourne/`.
-- `plutus-core::import::bom` parses bytes → `Vec<ParsedRow { date, amount
-  (credit − debit), description (whitespace collapsed), balance }>`; skips
-  `,,,,` rows; strict header check with a friendly error; MM/DD/YYYY;
-  row-numbered errors. Use the `csv` crate (RFC 4180 quoting).
-- Payee guess: for `Eftpos Debit … DDMonHH:MM  Merchant \ Suburb Au`, take
-  the merchant; otherwise none (keep description as the bank text).
-- Preview: `import::preview(db, account_id, rows)` marks each row new or
-  duplicate (`import_hash` = sha256 of account|date|amount|normalised
-  description, plus an occurrence index for identical rows on the same day;
-  migration adds `transactions.import_hash` + unique index per account), and
-  checks the file's balance chain.
-- `import::commit` inserts the new rows in one SQL transaction.
-- Then the import UI (file picker via Tauri dialog plugin, preview table,
-  account choice, Import button).
-After M4's BoM tasks: M3 assignment (see the plan in git history of this
-file, commit 6d76114).
+**M4 — Import screen** (new sidebar page "Import", between Transactions and
+Budgets, icon `FileUp`):
+1. Account picker (active accounts) + file input (`accept=".csv"`), read
+   with `file.text()`, then `api.previewBomImport`. File errors (field
+   `file`) inline under the picker.
+2. Summary: "N new · N already imported · N possible matches · N before
+   opening date"; balance check: if `bank_balance` and it ≠
+   `balance_after`, warn ("Plutus will show $X but the bank file says $Y —
+   check the opening balance or earlier rows"); if `balance_breaks`, list
+   the lines ("the export may be missing rows near line N").
+3. Table (DataTable): checkbox, Date, Payee/Description, Amount, Bank
+   balance, Status badge. Defaults: new ticked; duplicate disabled
+   unticked; possible_match / before_opening unticked but tickable.
+4. "Import N transactions" → `api.commitImport(accountId, ticked rows
+   without status fields)` → toast "Imported N (skipped M)" → reset; offer
+   "View in Transactions" (navigate with that account filtered).
+Tests with a fake API like TransactionsPage.test.tsx; preview check in the
+browser harness (add the two commands to the mock). Then cut v0.4.0.
 
 ## Open questions for the owner
 

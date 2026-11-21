@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use plutus_core::{
     Account, AccountInput, Category, CategoryGroup, CategoryInput, Database, DbError, GroupInput,
     LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction, TransactionInput,
-    TransactionQuery, Transfer, TransferInput, Vault, accounts, categories, transactions,
+    TransactionQuery, Transfer, TransferInput, Vault, accounts, categories, import, transactions,
     transfers,
 };
 use serde::Serialize;
@@ -319,6 +319,34 @@ async fn set_category_archived(
     .await
 }
 
+/// Read a Bank of Melbourne CSV export (as text) and show what importing it
+/// into `account_id` would do. Writes nothing.
+#[tauri::command]
+async fn preview_bom_import(
+    state: State<'_, AppState>,
+    account_id: i64,
+    text: String,
+) -> CmdResult<import::Preview> {
+    with_db(&state.vault, move |db| {
+        let rows = import::bom::parse(&text)?;
+        import::preview(db, account_id, rows)
+    })
+    .await
+}
+
+/// Import the rows the owner kept from a preview (one SQL transaction).
+#[tauri::command]
+async fn commit_import(
+    state: State<'_, AppState>,
+    account_id: i64,
+    rows: Vec<import::ImportRow>,
+) -> CmdResult<import::CommitResult> {
+    with_db(&state.vault, move |db| {
+        import::commit(db, account_id, &rows)
+    })
+    .await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -363,7 +391,9 @@ pub fn run() {
             set_category_group_archived,
             create_category,
             update_category,
-            set_category_archived
+            set_category_archived,
+            preview_bom_import,
+            commit_import
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -583,6 +613,40 @@ mod tests {
                 .unwrap_err();
             assert_eq!(e.field, Some("name"));
             assert_ne!(e.code, "invalid", "a clash is a conflict, not bad input");
+        });
+    }
+
+    #[test]
+    fn import_commands_preview_then_commit() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let a = with_db(&vault, |db| accounts::create(db, &input("Everyday")))
+                .await
+                .unwrap();
+            let text = "Date,Description,Debit,Credit,Balance\r\n\
+                        11/20/2026,Eftpos Debit    20Nov15:37  Gym Co  \\  Melbourne  Au,7.99,,1.00\r\n,,,,\r\n";
+            let id = a.id;
+            let p = with_db(&vault, move |db| {
+                import::preview(db, id, import::bom::parse(text)?)
+            })
+            .await
+            .unwrap();
+            let json = serde_json::to_value(&p).unwrap();
+            assert_eq!(json["rows"][0]["status"], "new");
+            assert_eq!(json["rows"][0]["payee"], "Gym Co");
+            let rows: Vec<import::ImportRow> =
+                serde_json::from_value(serde_json::json!([json["rows"][0].clone()])).unwrap();
+            let r = with_db(&vault, move |db| import::commit(db, id, &rows))
+                .await
+                .unwrap();
+            assert_eq!(serde_json::to_value(r).unwrap()["imported"], 1);
+
+            let e = with_db(&vault, |_db| import::bom::parse("nope").map(|_| ()))
+                .await
+                .unwrap_err();
+            assert_eq!((e.code, e.field), ("invalid", Some("file")));
         });
     }
 }

@@ -117,3 +117,14 @@ Short, dated entries. Future sessions follow these without re-deciding.
   the Bank of Melbourne CSV format, so M4's importer comes next (it saves
   the most typing); M3 assignment/rules follow. BoM dates are MM/DD/YYYY;
   the importer parses that format explicitly, never guesses day/month order.
+- **2026-11-21 — Import de-duplication by key, not fuzzy matching.**
+  `import_key` = `date|cents|lowercased description|n` where n numbers
+  identical rows within one file; stored on the transaction, unique per
+  account (migration 0006). Re-importing overlaps skips them; committing
+  twice is harmless. Rows matching a hand-entered transaction (same date +
+  amount, no key) are `possible_match`; rows before the opening date are
+  `before_opening`; both skipped unless ticked. Imported rows are cleared;
+  payee is guessed from Eftpos descriptions, bank text kept as description.
+  The file's balance chain is checked and the projected balance compared
+  with the bank's. The UI reads the file as text (`<input type=file>`), so
+  no dialog plugin is needed.

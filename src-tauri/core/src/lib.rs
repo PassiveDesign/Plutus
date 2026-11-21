@@ -6,6 +6,7 @@
 pub mod accounts;
 pub mod categories;
 pub mod db;
+pub mod import;
 pub mod money;
 pub mod transactions;
 pub mod transfers;
