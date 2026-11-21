@@ -36,10 +36,13 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. **v0.8.0 (CSV export)** is a draft release with all five installers;
-   owner smoke test, then publish with `gh release edit v0.8.0 --draft=false --latest`.
-2. **v0.9.0 (generic CSV import)** is being cut from `main`; the release
-   workflow tags and builds the installers when CI is green.
+1. **v0.9.0 (generic CSV import)** is a draft release: `AppImage` 108.4 MB and
+   `.deb` 5.3 MB, built on the self-hosted runner (run 44905996011). Owner
+   smoke test, then publish with `gh release edit v0.9.0 --draft=false --latest`.
+   It supersedes v0.8.0; delete the v0.8.0 draft afterwards.
+2. **Windows installers are not being built.** A Tauri Windows build cannot be
+   cross-compiled from Linux, so either restore GitHub billing and set the repo
+   variable `WINDOWS_CI=true`, or register a second runner on a Windows machine.
 3. Remaining M7: auto-lock after idle (optional; the owner has not asked).
 4. Remaining M4: OFX/QFX and QIF import, then optional PDF statements.
 
@@ -60,15 +63,25 @@ Rewritten at the end of every session. Read after AGENTS.md.
 - Cold `plutus-core` build takes ~80s (SQLCipher + vendored OpenSSL).
 - `gh` lives at `~/.local/bin/gh`; Rust via rustup in `~/.cargo`.
 
-## Blocker (owner action)
+## CI setup (self-hosted runner)
 
-- **GitHub Actions will not start jobs** for this repo: runs fail within ~2
-  seconds with zero steps and no runner. The check-run annotation says "The
-  job was not started because recent account payments have failed or your
-  spending limit needs to be increased." Fix billing (card / spending limit) in
-  GitHub → Settings → Billing; then CI and the Release workflow will run again.
-  Until then, `v0.9.0` is pushed to `main` but not tagged, and nothing new can
-  be built. An empty commit `8cd8f53` sits on `main` from the diagnosis.
+- GitHub-hosted Actions minutes are blocked on this account ("recent account
+  payments have failed or your spending limit needs to be increased"), so Linux
+  CI and Linux release builds run on a **self-hosted runner** instead:
+  - Directory `~/actions-runner-plutus`, runner name `plutus-local`, labels
+    `self-hosted, linux, x64, plutus`, version 2.338.2.
+  - Start it with `cd ~/actions-runner-plutus && ./run.sh` (it is not a systemd
+    service, so it does not survive a reboot; restart it after booting).
+  - It runs as the owner's user and executes repo code — fine for this private
+    single-author repo, not for untrusted forks.
+  - Check its state with `gh api repos/PassiveDesign/Plutus/actions/runners`.
+- Windows jobs are gated on the repo variable `WINDOWS_CI == 'true'` and are
+  skipped while it is unset. Set it once billing works:
+  `gh variable set WINDOWS_CI --body true`.
+- The self-hosted runner has no `rpm` toolchain (installing it needs sudo), so
+  the Linux release job passes `--bundles deb,appimage`; `rpm` stays in
+  `tauri.conf.json` for hosted builds.
+- An empty commit `8cd8f53` sits on `main` from the billing diagnosis.
 
 ## Half-done work
 
