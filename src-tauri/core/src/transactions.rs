@@ -48,6 +48,10 @@ pub struct Transaction {
     pub cleared: bool,
     pub created_at: String,
     pub updated_at: Option<String>,
+    /// Set on both legs of a transfer (the outgoing leg's id).
+    pub transfer_id: Option<i64>,
+    /// For transfer legs: the account on the other side.
+    pub transfer_account_id: Option<i64>,
 }
 
 /// Filter for [`list`] / [`count`]. Dates are inclusive.
@@ -66,8 +70,18 @@ pub struct TransactionQuery {
     pub offset: Option<u32>,
 }
 
-const SELECT: &str = "SELECT id, account_id, date, amount_cents, payee, description, memo, \
-     cleared, created_at, updated_at FROM transactions";
+/// Columns in [`from_row`] order. Expects the table aliased as `t`.
+macro_rules! columns {
+    () => {
+        "t.id, t.account_id, t.date, t.amount_cents, t.payee, t.description, \
+         t.memo, t.cleared, t.created_at, t.updated_at, t.transfer_id, \
+         (SELECT o.account_id FROM transactions o \
+          WHERE o.transfer_id = t.transfer_id AND o.id <> t.id) AS transfer_account_id"
+    };
+}
+
+const COLUMNS: &str = columns!();
+const SELECT: &str = concat!("SELECT ", columns!(), " FROM transactions t");
 
 fn from_row(row: &Row<'_>) -> rusqlite::Result<Transaction> {
     Ok(Transaction {
@@ -81,10 +95,12 @@ fn from_row(row: &Row<'_>) -> rusqlite::Result<Transaction> {
         cleared: row.get(7)?,
         created_at: row.get(8)?,
         updated_at: row.get(9)?,
+        transfer_id: row.get(10)?,
+        transfer_account_id: row.get(11)?,
     })
 }
 
-fn invalid(field: &'static str, message: impl Into<String>) -> DbError {
+pub(crate) fn invalid(field: &'static str, message: impl Into<String>) -> DbError {
     DbError::Invalid {
         field,
         message: message.into(),
@@ -114,16 +130,16 @@ fn optional_text(
     }
 }
 
-struct Clean {
-    payee: Option<String>,
-    description: Option<String>,
-    memo: Option<String>,
+pub(crate) struct Clean {
+    pub(crate) payee: Option<String>,
+    pub(crate) description: Option<String>,
+    pub(crate) memo: Option<String>,
 }
 
 /// Validate input. `existing_account` is the transaction's current account
 /// when updating: staying in an archived account is allowed (fixing old
 /// history), moving into one is not.
-fn validate(
+pub(crate) fn validate(
     db: &Database,
     input: &TransactionInput,
     existing_account: Option<i64>,
@@ -169,7 +185,7 @@ fn validate(
 
 pub fn get(db: &Database, id: i64) -> Result<Transaction, DbError> {
     db.conn()
-        .query_row(&format!("{SELECT} WHERE id = ?1"), [id], from_row)
+        .query_row(&format!("{SELECT} WHERE t.id = ?1"), [id], from_row)
         .optional()?
         .ok_or_else(|| not_found(id))
 }
@@ -194,6 +210,18 @@ pub fn add(db: &Database, input: &TransactionInput) -> Result<Transaction, DbErr
 
 pub fn update(db: &Database, id: i64, input: &TransactionInput) -> Result<Transaction, DbError> {
     let existing = get(db, id)?;
+    // A transfer leg's account, date and amount must stay mirrored with the
+    // other leg; those change only through `transfers::update`.
+    if existing.transfer_id.is_some()
+        && (input.account_id != existing.account_id
+            || input.date != existing.date
+            || input.amount != existing.amount)
+    {
+        return Err(invalid(
+            "transfer",
+            "This is part of a transfer. Edit it as a transfer to change the account, date or amount.",
+        ));
+    }
     let c = validate(db, input, Some(existing.account_id))?;
     db.conn().execute(
         "UPDATE transactions SET account_id = ?1, date = ?2, amount_cents = ?3, payee = ?4, \
@@ -213,11 +241,18 @@ pub fn update(db: &Database, id: i64, input: &TransactionInput) -> Result<Transa
     get(db, id)
 }
 
+/// Delete a transaction. Deleting either leg of a transfer deletes both.
 pub fn delete(db: &Database, id: i64) -> Result<(), DbError> {
-    let n = db
-        .conn()
-        .execute("DELETE FROM transactions WHERE id = ?1", [id])?;
-    if n == 0 { Err(not_found(id)) } else { Ok(()) }
+    let existing = get(db, id)?;
+    match existing.transfer_id {
+        Some(group) => db
+            .conn()
+            .execute("DELETE FROM transactions WHERE transfer_id = ?1", [group])?,
+        None => db
+            .conn()
+            .execute("DELETE FROM transactions WHERE id = ?1", [id])?,
+    };
+    Ok(())
 }
 
 /// WHERE clause + parameters shared by [`list`] and [`count`].
@@ -310,8 +345,7 @@ pub fn list_with_running_balance(
 
     let sql = format!(
         "SELECT * FROM ( \
-           SELECT t.id, t.account_id, t.date, t.amount_cents, t.payee, t.description, t.memo, \
-                  t.cleared, t.created_at, t.updated_at, \
+           SELECT {COLUMNS}, \
                   CASE WHEN t.date >= a.opening_date THEN \
                     a.opening_balance_cents + SUM(CASE WHEN t.date >= a.opening_date \
                                                        THEN t.amount_cents ELSE 0 END) \
@@ -327,7 +361,7 @@ pub fn list_with_running_balance(
         .query_map(refs.as_slice(), |r| {
             Ok(LedgerRow {
                 transaction: from_row(r)?,
-                running_balance: r.get::<_, Option<i64>>(10)?.map(Money::from_cents),
+                running_balance: r.get::<_, Option<i64>>(12)?.map(Money::from_cents),
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;

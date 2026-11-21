@@ -7,10 +7,12 @@ pub mod accounts;
 pub mod db;
 pub mod money;
 pub mod transactions;
+pub mod transfers;
 pub mod vault;
 
 pub use accounts::{Account, AccountInput, AccountKind};
 pub use db::{Database, DbError};
 pub use money::{Money, MoneyError};
 pub use transactions::{LedgerRow, Transaction, TransactionInput, TransactionQuery};
+pub use transfers::{Transfer, TransferInput};
 pub use vault::{MIN_PASSWORD_CHARS, Vault, VaultStatus};

@@ -14,6 +14,7 @@ pub(crate) const MIGRATIONS: &[(u32, &str)] = &[
     (1, include_str!("../../migrations/0001_meta.sql")),
     (2, include_str!("../../migrations/0002_accounts.sql")),
     (3, include_str!("../../migrations/0003_transactions.sql")),
+    (4, include_str!("../../migrations/0004_transfers.sql")),
 ];
 
 /// Schema version a fully migrated database reports.
