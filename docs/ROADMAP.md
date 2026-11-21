@@ -78,7 +78,7 @@ Feature scope is a first draft — edit freely.
 
 ## M6 — Reports & dashboard
 
-- [ ] Dashboard: net worth, this month's spending, account balances
+- [x] Dashboard: net worth, this month's spending, account balances
 - [ ] Spending by category (chart), income vs expense over time
 - [ ] Net worth over time
 

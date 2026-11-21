@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AccountsPage } from "../pages/AccountsPage";
 import { BudgetPage } from "../pages/BudgetPage";
+import { DashboardPage } from "../pages/DashboardPage";
 import { CategoriesPage } from "../pages/CategoriesPage";
 import { ImportPage } from "../pages/ImportPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
@@ -20,6 +21,11 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
   function navigate(id: PageId) {
     setTxAccount(null);
     setCurrent(id);
+  }
+
+  function openAccount(id: number) {
+    setTxAccount(id);
+    setCurrent("transactions");
   }
   const page = pageById(current);
 
@@ -44,7 +50,9 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
         </header>
         <section className="page-body">
           {/* Real pages replace the placeholder here as roadmap tasks land. */}
-          {current === "settings" ? (
+          {current === "dashboard" ? (
+            <DashboardPage onNavigate={navigate} onOpenAccount={openAccount} />
+          ) : current === "settings" ? (
             <SettingsPage minChars={minPasswordChars} />
           ) : current === "accounts" ? (
             <AccountsPage />
@@ -55,12 +63,7 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
           ) : current === "categories" ? (
             <CategoriesPage />
           ) : current === "import" ? (
-            <ImportPage
-              onViewTransactions={(id) => {
-                setTxAccount(id);
-                setCurrent("transactions");
-              }}
-            />
+            <ImportPage onViewTransactions={openAccount} />
           ) : (
             <PlaceholderPage page={page} />
           )}

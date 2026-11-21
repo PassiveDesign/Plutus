@@ -157,3 +157,9 @@ Short, dated entries. Future sessions follow these without re-deciding.
   exclude carry-overs; the line's `remaining` includes them.
 - **2026-11-21 — Order after budgets: dashboard & reports (M6) before
   valuations (M5b)** (owner's choice).
+- **2026-11-21 — Report definitions.** Net worth = sum of all account
+  balances (archived included); assets = positive balances, debts =
+  negative. Month income/spending = money in/out excluding transfers
+  (refunds count as income in these totals). Spending by category = net
+  per expense category (refunds offset spending) plus uncategorised money
+  out only (uncategorised money in isn't treated as a refund).

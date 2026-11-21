@@ -1058,3 +1058,148 @@ button:disabled {
 .budget-bar.over > span {
   background: var(--danger, #c0392b);
 }
+
+/* ---- Dashboard ---- */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.dash-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.dash-card,
+.dash-panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.dash-card h2,
+.dash-panel h2 {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.dash-card .muted,
+.dash-panel .muted {
+  margin: 0;
+}
+
+.money.big {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.dash-card .btn {
+  align-self: flex-start;
+}
+
+.dash-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.dash-panel-head {
+  display: flex;
+  align-items: center;
+}
+
+.dash-bars,
+.dash-list {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+
+.dash-bars li {
+  display: grid;
+  grid-template-columns: minmax(0, 9rem) 1fr 7rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.3rem 0;
+}
+
+.dash-bar-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--hover);
+  overflow: hidden;
+}
+
+.dash-bar-track > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.dash-list li {
+  border-top: 1px solid var(--border);
+}
+
+.dash-list li:first-child {
+  border-top: none;
+}
+
+.link-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.45rem 0.25rem;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.link-row:hover {
+  background: var(--hover);
+}
+
+.dash-recent {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr) minmax(0, 10rem) 7rem;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.45rem 0.25rem;
+}
+
+.dash-bars .money,
+.dash-recent .money {
+  text-align: right;
+}
+
+.dash-recent-acct {
+  text-align: left;
+}
+
+.dash-recent-payee,
+.dash-recent-acct {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

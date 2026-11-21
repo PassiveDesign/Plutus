@@ -201,6 +201,20 @@ export type MonthBudget = {
   income: number;
 };
 
+export type Dashboard = {
+  month: Month;
+  /** Cents. `debts` is negative. */
+  net_worth: { assets: number; debts: number; net: number };
+  /** This month, transfers excluded. `spending` is positive. */
+  totals: { income: number; spending: number; net: number };
+  /** Largest first, at most 5; category_id null = uncategorised. */
+  top_spending: { category_id: number | null; spent: number }[];
+  budgeted: number;
+  budget_spent: number;
+  budget_remaining: number;
+  recent: Transaction[];
+};
+
 export type GroupKind = "income" | "expense";
 
 export type Category = {
@@ -289,6 +303,7 @@ export const api = {
     invoke<void>("set_budget_rollover", { categoryId, on }),
   /** Undo the change made in exactly `month`. */
   clearBudget: (categoryId: number, month: Month) => invoke<void>("clear_budget", { categoryId, month }),
+  dashboard: (month: Month) => invoke<Dashboard>("dashboard", { month }),
   listCategories: (includeArchived = false) =>
     invoke<CategoryGroup[]>("list_categories", { includeArchived }),
   /** Transactions per category id; unused categories are absent. */

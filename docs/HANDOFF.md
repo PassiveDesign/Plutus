@@ -131,6 +131,11 @@ Rewritten at the end of every session. Read after AGENTS.md.
   summary, grouped table, inline `BudgetEditor`, undo, rollover toggle,
   progress bars); `formatMonth`/`addMonths`/`thisMonth` in dates.ts.
   112 core, 136 UI tests.
+- **Dashboard done:** `plutus-core::reports` (`net_worth`, `totals`,
+  `spending_by_category`, `dashboard`), command `dashboard(month)`;
+  `src/pages/DashboardPage.tsx` (net worth / this month / budget cards,
+  top spending bars, accounts → Transactions filtered, recent 5, empty
+  states). AppShell has `openAccount(id)`. 115 core, 140 UI, 14 shell.
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -176,18 +181,18 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M6 — Dashboard** (owner chose dashboard/reports before valuations):
-- Core `reports` module: `net_worth(db, as_of)` (sum of balances of
-  active + archived accounts, liabilities negative; valued kinds use their
-  balance until M5b), `month_summary(db, month)` (income, spending, net,
-  top spending categories), `cash_flow(db, from, to)` per month.
-- Dashboard page replacing the placeholder: net worth (assets, debts,
-  net), this month's spending vs budget (from `budgets::month`), top 5
-  categories, account balances list, recent transactions (5). No chart
-  library yet — decide (recharts vs hand-rolled SVG) when charts arrive
-  in the Reports task; record in DECISIONS.
-Then Reports (spending by category chart, income vs expense over time,
-net worth over time), then cut v0.6.0.
+**M6 — Reports page** (replace the Reports placeholder), then cut v0.6.0:
+- Decide charts: hand-rolled SVG (no dependency, small) vs recharts
+  (~100 kB gz). Prefer hand-rolled SVG bars/lines; record in DECISIONS.
+- Core: `reports::monthly(db, from: Month, to: Month)` →
+  per month {income, spending, net} (reuse `totals`); `net_worth_history`
+  (balance per month end: opening balances + transactions up to the date,
+  accounts counted from their opening date); `spending_by_category` for a
+  range already exists.
+- Page: range picker (last 6 / 12 months / this year), spending by
+  category (horizontal bars + table, click → Transactions filtered by
+  category… needs a category filter on Transactions — add it), income vs
+  spending per month (paired bars), net worth over time (line).
 
 ## Open questions for the owner
 

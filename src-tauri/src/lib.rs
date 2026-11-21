@@ -6,8 +6,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use plutus_core::{
     Account, AccountInput, Category, CategoryGroup, CategoryInput, Database, DbError, GroupInput,
     LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction, TransactionInput,
-    TransactionQuery, Transfer, TransferInput, Vault, accounts, budgets, categories, import, rules,
-    transactions, transfers,
+    TransactionQuery, Transfer, TransferInput, Vault, accounts, budgets, categories, import,
+    reports, rules, transactions, transfers,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -456,6 +456,15 @@ async fn clear_budget(
     .await
 }
 
+/// Everything the dashboard shows for a month.
+#[tauri::command]
+async fn dashboard(
+    state: State<'_, AppState>,
+    month: budgets::Month,
+) -> CmdResult<reports::Dashboard> {
+    with_db(&state.vault, move |db| reports::dashboard(db, month)).await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -514,7 +523,8 @@ pub fn run() {
             budget_month,
             set_budget,
             clear_budget,
-            set_budget_rollover
+            set_budget_rollover,
+            dashboard
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -882,6 +892,39 @@ mod tests {
             assert!(
                 serde_json::from_value::<budgets::Month>(serde_json::json!("2026-13")).is_err()
             );
+        });
+    }
+
+    #[test]
+    fn dashboard_command_serialises() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            with_db(&vault, |db| accounts::create(db, &input("Everyday")))
+                .await
+                .unwrap();
+            let month: budgets::Month =
+                serde_json::from_value(serde_json::json!("2026-11")).unwrap();
+            let d = with_db(&vault, move |db| reports::dashboard(db, month))
+                .await
+                .unwrap();
+            let v = serde_json::to_value(&d).unwrap();
+            assert_eq!(v["net_worth"]["net"], 12345);
+            assert!(v["recent"].as_array().unwrap().is_empty());
+        });
+    }
+
+    #[test]
+    fn set_budget_rollover_reports_missing_category() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let e = with_db(&vault, |db| budgets::set_rollover(db, 99_999, true))
+                .await
+                .unwrap_err();
+            assert_eq!(e.field, Some("category_id"));
         });
     }
 }
