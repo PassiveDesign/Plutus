@@ -88,7 +88,8 @@ Feature scope is a first draft — edit freely.
 
 ## M7 — Data safety
 
-- [ ] Cut `v0.7.0` (backup / restore); verify v9 → v9 upgrade
+- [x] Cut `v0.7.0` (backup / restore); verify v9 → v9 upgrade (draft release
+      built 2026-11-21; awaiting owner smoke test)
 
 - [x] Backup / restore the database file from Settings (backups beside the
       database; restore keeps a pre-restore copy)
