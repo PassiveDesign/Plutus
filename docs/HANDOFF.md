@@ -36,10 +36,10 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. **v0.8.0 (CSV export)** is building as a draft release; owner smoke test,
-   then publish with `gh release edit v0.8.0 --draft=false --latest`.
-2. **Generic CSV import** is on `main`; cut it as v0.9.0 once v0.8.0 is
-   published (bump the three version files, tag, release).
+1. **v0.8.0 (CSV export)** is a draft release with all five installers;
+   owner smoke test, then publish with `gh release edit v0.8.0 --draft=false --latest`.
+2. **v0.9.0 (generic CSV import)** is being cut from `main`; the release
+   workflow tags and builds the installers when CI is green.
 3. Remaining M7: auto-lock after idle (optional; the owner has not asked).
 4. Remaining M4: OFX/QFX and QIF import, then optional PDF statements.
 
