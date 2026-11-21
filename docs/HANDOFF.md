@@ -124,18 +124,15 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**Cut v0.3.0** (transactions release):
-1. Bump `0.2.0` → `0.3.0` in `package.json`, `src-tauri/Cargo.toml`,
-   `src-tauri/tauri.conf.json`; `npm install --package-lock-only` and
-   `cargo update -w` for the lockfiles. Commit in a worktree, push to main.
-2. Tag `v0.3.0`, watch Release, check the 5 assets.
-3. Owner smoke test: install over v0.2.0 → unlock (DB upgrades v2 → v4
-   silently, real accounts intact) → add transactions, a transfer between
-   two offsets, check running balances and account balances, cleared
-   toggle, edit/delete → restart. Then publish and tick M2.5.
-
-Then **M3 — Categories** (migration adds `categories` table and
-`transactions.category_id` via ALTER).
+1. **Get the owner's v0.3.0 smoke-test results.** Checklist: install over
+   v0.2.0 → unlock (DB upgrades v2 → v4 silently, real accounts intact) →
+   add transactions (money out/in), a transfer between two offsets → check
+   running balances (Transactions filtered to one account) and the Accounts
+   page balances/net owed → cleared toggle, edit, delete (incl. a transfer)
+   → restart. If good: `gh release edit v0.3.0 --draft=false --latest`,
+   tick M2.5. If not: fix, cut v0.3.1.
+2. Then **M3 — Categories** (migration adds `categories` table and
+   `transactions.category_id` via ALTER).
 
 ## Open questions for the owner
 
