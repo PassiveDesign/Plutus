@@ -205,7 +205,10 @@ mod tests {
             "the copy must stay encrypted"
         );
         // The vault is still usable after the backup.
-        assert_eq!(vault.db().unwrap().schema_version().unwrap(), 9);
+        assert_eq!(
+            vault.db().unwrap().schema_version().unwrap(),
+            crate::db::LATEST_VERSION
+        );
     }
 
     #[test]

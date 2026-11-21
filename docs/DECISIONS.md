@@ -183,3 +183,17 @@ Short, dated entries. Future sessions follow these without re-deciding.
   the vault unlocked. The UI confirms before restoring.
 
 - **2026-11-21 — CSV export.** The Transactions page exports what the current filters match (all of it, not just the visible page) to `<app data>/exports/transactions-YYYYMMDD-HHMMSS.csv`, beside the database's `backups` folder. Columns: Date, Account, Payee, Description, Category, Amount, Transfer. Dates are ISO (`2026-11-20`); amounts are signed plain decimals (`-7.99` for money out, no currency symbol or thousands separators); fields containing a comma, quote or newline are quoted with doubled quotes. Rows are oldest first so the file reads like a statement. Exports are not encrypted — they are plain text, so they are the owner's to store or delete.
+
+- **2026-11-21 — Generic CSV import by column mapping.** Bank of Melbourne keeps
+  its own parser because its format is fixed. Every other bank's CSV goes
+  through a mapping: the owner names the date, description, and either one
+  signed amount column or a debit/credit pair; payee and balance are optional.
+  Column names are matched against the header row ignoring case and spaces, so
+  a mapping survives the bank reordering extra columns. Dates are parsed with
+  an explicit format (`mdy`, `dmy`, `ymd`) — never guessed from the data, so a
+  day/month mix-up can't silently corrupt history. A file whose header row is
+  exactly Bank of Melbourne's `Date,Description,Debit,Credit,Balance` still
+  uses the dedicated parser. Mappings are saved as named presets (migration
+  0010, `import_presets`, mapping as JSON, names unique case-insensitively);
+  saving an existing name replaces it. The importer picks by header row, not
+  by file name or bank.

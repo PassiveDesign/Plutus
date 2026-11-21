@@ -158,6 +158,28 @@ export type ImportPreview = {
 
 export type ImportResult = { imported: number; skipped: number };
 
+// ---- Generic CSV imports (mirror plutus_core::import::generic) ----
+
+export type DateFormat = "mdy" | "dmy" | "ymd";
+
+/** Which column holds what. Column names match the header row, ignoring case
+ *  and spaces. Amounts come from one signed column (`amount`) or a debit /
+ *  credit pair; `payee` and `balance` are optional. */
+export type ImportMapping = {
+  date: string;
+  date_format: DateFormat;
+  description: string;
+  payee: string | null;
+  amount: string | null;
+  debit: string | null;
+  credit: string | null;
+  balance: string | null;
+};
+
+export type ImportFileShape = { headers: string[]; mapping: ImportMapping };
+
+export type ImportPreset = { id: number; name: string; mapping: ImportMapping };
+
 export type MatchField = "payee" | "description" | "either";
 export type RuleDirection = "in" | "out";
 
@@ -319,6 +341,15 @@ export const api = {
   deleteTransaction: (id: number) => invoke<void>("delete_transaction", { id }),
   previewBomImport: (accountId: number, text: string) =>
     invoke<ImportPreview>("preview_bom_import", { accountId, text }),
+  /** Header row and a guessed mapping for any other bank's CSV. */
+  importShape: (text: string) => invoke<ImportFileShape>("import_shape", { text }),
+  previewGenericImport: (accountId: number, text: string, mapping: ImportMapping) =>
+    invoke<ImportPreview>("preview_generic_import", { accountId, text, mapping }),
+  listImportPresets: () => invoke<ImportPreset[]>("list_import_presets"),
+  /** Saving an existing name replaces its mapping. */
+  saveImportPreset: (name: string, mapping: ImportMapping) =>
+    invoke<ImportPreset>("save_import_preset", { name, mapping }),
+  deleteImportPreset: (id: number) => invoke<void>("delete_import_preset", { id }),
   /** Send back the preview rows to import (as received, minus `status`). */
   commitImport: (accountId: number, rows: ImportRow[]) =>
     invoke<ImportResult>("commit_import", { accountId, rows }),

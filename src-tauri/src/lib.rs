@@ -385,6 +385,55 @@ async fn commit_import(
     .await
 }
 
+/// The header row and a guessed column mapping for a generic CSV file.
+/// Writes nothing, so it needs no database.
+#[tauri::command]
+fn import_shape(text: String) -> CmdResult<import::generic::FileShape> {
+    Ok(import::generic::shape(&text)?)
+}
+
+/// Read a generic CSV file with the owner's column mapping and show what
+/// importing it into `account_id` would do. Writes nothing.
+#[tauri::command]
+async fn preview_generic_import(
+    state: State<'_, AppState>,
+    account_id: i64,
+    text: String,
+    mapping: import::generic::Mapping,
+) -> CmdResult<import::Preview> {
+    with_db(&state.vault, move |db| {
+        let rows = import::generic::parse(&text, &mapping)?;
+        import::preview(db, account_id, rows)
+    })
+    .await
+}
+
+/// Saved column mappings, alphabetically.
+#[tauri::command]
+async fn list_import_presets(
+    state: State<'_, AppState>,
+) -> CmdResult<Vec<import::presets::Preset>> {
+    with_db(&state.vault, import::presets::list).await
+}
+
+/// Save a mapping under a name; an existing name is replaced.
+#[tauri::command]
+async fn save_import_preset(
+    state: State<'_, AppState>,
+    name: String,
+    mapping: import::generic::Mapping,
+) -> CmdResult<import::presets::Preset> {
+    with_db(&state.vault, move |db| {
+        import::presets::save(db, &name, &mapping)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn delete_import_preset(state: State<'_, AppState>, id: i64) -> CmdResult<()> {
+    with_db(&state.vault, move |db| import::presets::delete(db, id)).await
+}
+
 /// Auto-categorisation rules in the order they're tried.
 #[tauri::command]
 async fn list_rules(state: State<'_, AppState>) -> CmdResult<Vec<rules::Rule>> {
@@ -580,6 +629,11 @@ pub fn run() {
             update_category,
             set_category_archived,
             preview_bom_import,
+            import_shape,
+            preview_generic_import,
+            list_import_presets,
+            save_import_preset,
+            delete_import_preset,
             commit_import,
             list_rules,
             create_rule,
@@ -1062,6 +1116,89 @@ mod tests {
             .unwrap();
             // Still unlocked and usable after the swap.
             assert_eq!(guard(&vault).status().as_str(), "unlocked");
+        });
+    }
+
+    #[test]
+    fn import_shape_guesses_the_mapping() {
+        let shape =
+            import_shape("Date,Description,Amount\n11/20/2026,COFFEE,-4.50\n".into()).unwrap();
+        assert_eq!(shape.headers, ["Date", "Description", "Amount"]);
+        assert_eq!(shape.mapping.date, "Date");
+        assert_eq!(shape.mapping.amount.as_deref(), Some("Amount"));
+        let json = serde_json::to_value(&shape).unwrap();
+        assert_eq!(json["mapping"]["date_format"], "mdy");
+    }
+
+    #[test]
+    fn generic_import_previews_then_commits_with_a_mapping() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        let csv = "When,Details,Value\n18/11/2026,BAKERY,-6.50\n";
+        let mapping: import::generic::Mapping = serde_json::from_value(serde_json::json!({
+            "date": "When",
+            "date_format": "dmy",
+            "description": "Details",
+            "amount": "Value"
+        }))
+        .unwrap();
+        tauri::async_runtime::block_on(async {
+            let account = with_db(&vault, |db| accounts::create(db, &input("Everyday")))
+                .await
+                .unwrap();
+            let m = mapping.clone();
+            let p = with_db(&vault, move |db| {
+                let rows = import::generic::parse(csv, &m)?;
+                import::preview(db, account.id, rows)
+            })
+            .await
+            .unwrap();
+            assert_eq!(p.rows.len(), 1);
+            assert_eq!(p.rows[0].amount.cents(), -650);
+            assert_eq!(p.rows[0].date.to_string(), "2026-11-18");
+
+            let rows: Vec<import::ImportRow> =
+                serde_json::from_value(serde_json::to_value(&p.rows).unwrap()).unwrap();
+            let r = with_db(&vault, move |db| import::commit(db, account.id, &rows))
+                .await
+                .unwrap();
+            assert_eq!(r.imported, 1);
+        });
+    }
+
+    #[test]
+    fn import_presets_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        let mapping: import::generic::Mapping = serde_json::from_value(serde_json::json!({
+            "date": "When",
+            "date_format": "dmy",
+            "description": "Details",
+            "amount": "Value"
+        }))
+        .unwrap();
+        tauri::async_runtime::block_on(async {
+            let saved = with_db(&vault, {
+                let m = mapping.clone();
+                move |db| import::presets::save(db, "ANZ", &m)
+            })
+            .await
+            .unwrap();
+            assert_eq!(saved.name, "ANZ");
+            let listed = with_db(&vault, import::presets::list).await.unwrap();
+            assert_eq!(listed.len(), 1);
+            assert_eq!(listed[0].mapping.amount.as_deref(), Some("Value"));
+            with_db(&vault, move |db| import::presets::delete(db, saved.id))
+                .await
+                .unwrap();
+            assert!(
+                with_db(&vault, import::presets::list)
+                    .await
+                    .unwrap()
+                    .is_empty()
+            );
         });
     }
 

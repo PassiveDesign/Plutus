@@ -836,6 +836,31 @@ button:disabled {
   font-weight: 600;
 }
 
+.import-mapping {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.import-mapping h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.import-mapping > .muted {
+  margin: 0;
+  max-width: 70ch;
+}
+
+.mapping-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem 1rem;
+}
+
 .import-done {
   display: flex;
   align-items: center;

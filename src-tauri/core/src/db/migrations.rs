@@ -20,6 +20,7 @@ pub(crate) const MIGRATIONS: &[(u32, &str)] = &[
     (7, include_str!("../../migrations/0007_category_rules.sql")),
     (8, include_str!("../../migrations/0008_budgets.sql")),
     (9, include_str!("../../migrations/0009_budget_rollover.sql")),
+    (10, include_str!("../../migrations/0010_import_presets.sql")),
 ];
 
 /// Schema version a fully migrated database reports.

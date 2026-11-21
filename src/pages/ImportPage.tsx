@@ -1,12 +1,16 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { FileUp } from "lucide-react";
-import { Button, DataTable, SelectField, useToast } from "../components";
+import { Button, DataTable, SelectField, TextField, useToast } from "../components";
 import type { Column } from "../components";
 import {
   Account,
   api,
   errorMessage,
   CategoryGroup,
+  DateFormat,
+  ImportFileShape,
+  ImportMapping,
+  ImportPreset,
   ImportPreview,
   ImportPreviewRow,
   ImportRow,
@@ -52,6 +56,36 @@ function toImportRow({ status: _s, matched_transaction_id: _m, category_id: _c, 
   return row;
 }
 
+/** Bank of Melbourne's exact column order; anything else needs a mapping. */
+const BOM_HEADERS = ["date", "description", "debit", "credit", "balance"];
+
+function isBankOfMelbourne(headers: string[]): boolean {
+  return (
+    headers.length === BOM_HEADERS.length &&
+    headers.every((h, i) => h.trim().toLowerCase() === BOM_HEADERS[i])
+  );
+}
+
+const DATE_FORMATS: { value: DateFormat; label: string; example: string }[] = [
+  { value: "mdy", label: "Month first", example: "11/20/2026" },
+  { value: "dmy", label: "Day first", example: "20/11/2026" },
+  { value: "ymd", label: "Year first", example: "2026-11-20" },
+];
+
+/** An empty mapping for a file whose columns couldn't be guessed. */
+function blankMapping(): ImportMapping {
+  return {
+    date: "",
+    date_format: "mdy",
+    description: "",
+    payee: null,
+    amount: null,
+    debit: null,
+    credit: null,
+    balance: null,
+  };
+}
+
 export function ImportPage({ onViewTransactions }: Props) {
   const toast = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -65,6 +99,14 @@ export function ImportPage({ onViewTransactions }: Props) {
   const [fileError, setFileError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ accountId: number; imported: number; skipped: number } | null>(null);
+  // Generic CSV: the header row and the owner's column mapping.
+  const [shape, setShape] = useState<ImportFileShape | null>(null);
+  const [mapping, setMapping] = useState<ImportMapping | null>(null);
+  const [mappingError, setMappingError] = useState<string | null>(null);
+  const [presets, setPresets] = useState<ImportPreset[]>([]);
+  const [presetId, setPresetId] = useState("");
+  const [presetName, setPresetName] = useState("");
+  const [savingPreset, setSavingPreset] = useState(false);
 
   useEffect(() => {
     api
@@ -97,11 +139,36 @@ export function ImportPage({ onViewTransactions }: Props) {
     }
   }
 
+  async function runGenericPreview(acct: number, f: { name: string; text: string }, m: ImportMapping) {
+    setBusy(true);
+    setFileError(null);
+    setMappingError(null);
+    try {
+      const p = await api.previewGenericImport(acct, f.text, m);
+      setPreview(p);
+      setTicked(new Set(p.rows.filter((r) => r.status === "new").map((r) => r.line)));
+    } catch (e) {
+      const { field, general } = splitError(e);
+      setPreview(null);
+      // A mapping mistake belongs next to the mapping form, not the file picker.
+      if (field.mapping) setMappingError(field.mapping);
+      else setFileError(field.file ?? field.account_id ?? general ?? "Couldn't read the file.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function chooseFile(e: ChangeEvent<HTMLInputElement>) {
     const picked = e.currentTarget.files?.[0];
     e.currentTarget.value = ""; // allow re-picking the same file
     if (!picked || accountId === null) return;
     setDone(null);
+    setPreview(null);
+    setShape(null);
+    setMapping(null);
+    setMappingError(null);
+    setPresetId("");
+    setPresetName("");
     let text: string;
     try {
       text = await readText(picked);
@@ -111,12 +178,98 @@ export function ImportPage({ onViewTransactions }: Props) {
     }
     const f = { name: picked.name, text };
     setFile(f);
-    await runPreview(accountId, f);
+
+    // The header row decides which importer handles the file. Bank of
+    // Melbourne's fixed columns are recognised; anything else gets mapped.
+    setBusy(true);
+    setFileError(null);
+    let fileShape: ImportFileShape;
+    try {
+      fileShape = await api.importShape(text);
+    } catch (err) {
+      const { field, general } = splitError(err);
+      setFileError(field.file ?? general ?? "Couldn't read the file.");
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+
+    if (isBankOfMelbourne(fileShape.headers)) {
+      await runPreview(accountId, f);
+      return;
+    }
+    setShape(fileShape);
+    setMapping(fileShape.mapping.date ? fileShape.mapping : blankMapping());
+    setFileError(null);
+    try {
+      setPresets(await api.listImportPresets());
+    } catch {
+      setPresets([]);
+    }
   }
 
   function changeAccount(id: number) {
     setAccountId(id);
-    if (file) void runPreview(id, file);
+    setDone(null);
+    if (file && mapping && shape) void runGenericPreview(id, file, mapping);
+    else if (file && !shape) void runPreview(id, file);
+  }
+
+  function setMapField(field: keyof ImportMapping, value: string | null) {
+    setMapping((m) => (m ? { ...m, [field]: value } : m));
+    setMappingError(null);
+  }
+
+  function applyPreset(id: string) {
+    setPresetId(id);
+    const p = presets.find((x) => String(x.id) === id);
+    if (p) {
+      setMapping({ ...p.mapping });
+      setMappingError(null);
+    }
+  }
+
+  async function savePreset() {
+    if (!mapping) return;
+    const name = presetName.trim();
+    if (!name) {
+      setMappingError("Give the preset a name.");
+      return;
+    }
+    setSavingPreset(true);
+    try {
+      const saved = await api.saveImportPreset(name, mapping);
+      setPresets((prev) => {
+        const next = prev.filter((p) => p.id !== saved.id);
+        return [...next, saved].sort((a, b) => a.name.localeCompare(b.name));
+      });
+      setPresetId(String(saved.id));
+      setPresetName("");
+      toast.success(`Saved preset “${saved.name}”.`);
+    } catch (e) {
+      const { field, general } = splitError(e);
+      setMappingError(field.mapping ?? field.name ?? general ?? "Couldn't save the preset.");
+    } finally {
+      setSavingPreset(false);
+    }
+  }
+
+  async function deletePreset() {
+    const p = presets.find((x) => String(x.id) === presetId);
+    if (!p) return;
+    try {
+      await api.deleteImportPreset(p.id);
+      setPresets((prev) => prev.filter((x) => x.id !== p.id));
+      setPresetId("");
+      toast.success(`Deleted preset “${p.name}”.`);
+    } catch (e) {
+      toast.error(`Couldn't delete the preset: ${errorMessage(e)}`);
+    }
+  }
+
+  function previewMapped() {
+    if (!file || !mapping || accountId === null) return;
+    void runGenericPreview(accountId, file, mapping);
   }
 
   function toggle(line: number) {
@@ -133,6 +286,11 @@ export function ImportPage({ onViewTransactions }: Props) {
     setPreview(null);
     setTicked(new Set());
     setFileError(null);
+    setShape(null);
+    setMapping(null);
+    setMappingError(null);
+    setPresetId("");
+    setPresetName("");
   }
 
   async function doImport() {
@@ -243,8 +401,9 @@ export function ImportPage({ onViewTransactions }: Props) {
   return (
     <div className="import-page">
       <p className="muted">
-        In Bank of Melbourne internet banking, export the account's transactions as CSV, then choose the file
-        here. Nothing is saved until you press Import.
+        Export the account's transactions as CSV from your bank, then choose the file here. Bank of
+        Melbourne exports are recognised automatically; for any other bank, say which column holds what.
+        Nothing is saved until you press Import.
       </p>
 
       <div className="toolbar filters">
@@ -280,6 +439,210 @@ export function ImportPage({ onViewTransactions }: Props) {
         <p className="field-error" role="alert">
           {fileError}
         </p>
+      )}
+
+      {shape && mapping && !preview && (
+        <div className="import-mapping">
+          <h2>Map the columns</h2>
+          <p className="muted">
+            {file?.name} doesn't look like a Bank of Melbourne export. Tell Plutus which column holds
+            what; nothing is saved until you import. Save the mapping as a preset so next month's file
+            only takes one click.
+          </p>
+
+          {presets.length > 0 && (
+            <div className="toolbar">
+              <SelectField
+                label="Saved preset"
+                value={presetId}
+                onChange={(e) => applyPreset(e.currentTarget.value)}
+                disabled={busy}
+              >
+                <option value="">— None —</option>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </SelectField>
+              {presetId && (
+                <Button variant="secondary" onClick={deletePreset} disabled={busy}>
+                  Delete preset
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="mapping-grid">
+            <SelectField
+              label="Date"
+              value={mapping.date}
+              onChange={(e) => setMapField("date", e.currentTarget.value)}
+              disabled={busy}
+            >
+              <option value="">— Choose —</option>
+              {shape.headers.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              label="Date format"
+              hint={DATE_FORMATS.find((f) => f.value === mapping.date_format)?.example}
+              value={mapping.date_format}
+              onChange={(e) => setMapField("date_format", e.currentTarget.value)}
+              disabled={busy}
+            >
+              {DATE_FORMATS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label} ({f.example})
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              label="Description"
+              value={mapping.description}
+              onChange={(e) => setMapField("description", e.currentTarget.value)}
+              disabled={busy}
+            >
+              <option value="">— Choose —</option>
+              {shape.headers.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              label="Payee (optional)"
+              hint="Leave empty to guess the merchant from the description."
+              value={mapping.payee ?? ""}
+              onChange={(e) => setMapField("payee", e.currentTarget.value || null)}
+              disabled={busy}
+            >
+              <option value="">— None —</option>
+              {shape.headers.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              label="Amounts"
+              hint="One signed column, or separate money out and money in columns."
+              value={mapping.debit !== null || mapping.credit !== null ? "pair" : "single"}
+              onChange={(e) => {
+                const pair = e.currentTarget.value === "pair";
+                setMapping((m) =>
+                  m
+                    ? {
+                        ...m,
+                        amount: pair ? null : m.amount,
+                        debit: pair ? m.debit : null,
+                        credit: pair ? m.credit : null,
+                      }
+                    : m,
+                );
+                setMappingError(null);
+              }}
+              disabled={busy}
+            >
+              <option value="single">One amount column</option>
+              <option value="pair">Debit and credit columns</option>
+            </SelectField>
+
+            {mapping.debit !== null || mapping.credit !== null ? (
+              <>
+                <SelectField
+                  label="Money out"
+                  value={mapping.debit ?? ""}
+                  onChange={(e) => setMapField("debit", e.currentTarget.value || null)}
+                  disabled={busy}
+                >
+                  <option value="">— None —</option>
+                  {shape.headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </SelectField>
+                <SelectField
+                  label="Money in"
+                  value={mapping.credit ?? ""}
+                  onChange={(e) => setMapField("credit", e.currentTarget.value || null)}
+                  disabled={busy}
+                >
+                  <option value="">— None —</option>
+                  {shape.headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </SelectField>
+              </>
+            ) : (
+              <SelectField
+                label="Amount"
+                hint="Signed: negative is money out."
+                value={mapping.amount ?? ""}
+                onChange={(e) => setMapField("amount", e.currentTarget.value || null)}
+                disabled={busy}
+              >
+                <option value="">— Choose —</option>
+                {shape.headers.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </SelectField>
+            )}
+
+            <SelectField
+              label="Bank balance (optional)"
+              hint="Used to check the file against the bank."
+              value={mapping.balance ?? ""}
+              onChange={(e) => setMapField("balance", e.currentTarget.value || null)}
+              disabled={busy}
+            >
+              <option value="">— None —</option>
+              {shape.headers.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            </SelectField>
+          </div>
+
+          {mappingError && (
+            <p className="field-error" role="alert">
+              {mappingError}
+            </p>
+          )}
+
+          <div className="toolbar">
+            <TextField
+              label="Save as preset"
+              placeholder="e.g. ANZ everyday"
+              value={presetName}
+              onChange={(e) => setPresetName(e.currentTarget.value)}
+              disabled={busy || savingPreset}
+            />
+            <Button variant="secondary" onClick={savePreset} disabled={busy || savingPreset || !presetName.trim()}>
+              {savingPreset ? "Saving…" : "Save preset"}
+            </Button>
+            <span className="spacer" />
+            <Button variant="secondary" onClick={reset} disabled={busy}>
+              Cancel
+            </Button>
+            <Button onClick={previewMapped} disabled={busy} busy={busy} busyLabel="Reading…">
+              Preview
+            </Button>
+          </div>
+        </div>
       )}
 
       {done && (
@@ -324,8 +687,12 @@ export function ImportPage({ onViewTransactions }: Props) {
 
           <div className="toolbar">
             <span className="spacer" />
-            <Button variant="secondary" onClick={reset} disabled={busy}>
-              Cancel
+            <Button
+              variant="secondary"
+              onClick={() => (shape ? setPreview(null) : reset())}
+              disabled={busy}
+            >
+              {shape ? "Back to mapping" : "Cancel"}
             </Button>
             <Button onClick={doImport} disabled={tickedCount === 0} busy={busy} busyLabel="Importing…">
               {tickedCount === 0

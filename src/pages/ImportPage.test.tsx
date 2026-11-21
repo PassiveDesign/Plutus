@@ -13,6 +13,11 @@ vi.mock("../lib/api", async (orig) => {
       ...real.api,
       listAccounts: vi.fn(),
       previewBomImport: vi.fn(),
+      importShape: vi.fn(),
+      previewGenericImport: vi.fn(),
+      listImportPresets: vi.fn(),
+      saveImportPreset: vi.fn(),
+      deleteImportPreset: vi.fn(),
       commitImport: vi.fn(),
       listCategories: vi.fn(),
     },
@@ -90,6 +95,20 @@ beforeEach(() => {
   vi.resetAllMocks();
   m.listAccounts.mockResolvedValue([acct(1, "Bills Offset"), acct(2, "Everyday Offset", "Bank of Melbourne")]);
   m.previewBomImport.mockResolvedValue(preview());
+  m.importShape.mockResolvedValue({
+    headers: ["Date", "Description", "Debit", "Credit", "Balance"],
+    mapping: {
+      date: "Date",
+      date_format: "mdy",
+      description: "Description",
+      payee: null,
+      amount: null,
+      debit: "Debit",
+      credit: "Credit",
+      balance: "Balance",
+    },
+  });
+  m.listImportPresets.mockResolvedValue([]);
   m.commitImport.mockResolvedValue({ imported: 2, skipped: 0 });
   m.listCategories.mockResolvedValue([
     {
@@ -222,5 +241,168 @@ describe("ImportPage", () => {
     m.listAccounts.mockResolvedValue([]);
     renderPage();
     expect(await screen.findByText("Add an account first, then import its bank export.")).toBeInTheDocument();
+  });
+
+  it("maps the columns of a file that isn't a Bank of Melbourne export", async () => {
+    const genericCsv = "When,Details,Value,Balance\r\n18/11/2026,Bakery,-6.50,2412.75\r\n";
+    m.importShape.mockResolvedValue({
+      headers: ["When", "Details", "Value", "Balance"],
+      mapping: {
+        date: "When",
+        date_format: "mdy",
+        description: "Details",
+        payee: null,
+        amount: "Value",
+        debit: null,
+        credit: null,
+        balance: "Balance",
+      },
+    });
+    m.previewGenericImport.mockResolvedValue(preview());
+    const { user } = renderPage();
+    await screen.findByLabelText("Import into");
+    await upload(user, genericCsv, "anz.csv");
+
+    expect(await screen.findByText("Map the columns")).toBeInTheDocument();
+    expect(screen.getByLabelText("Date")).toHaveValue("When");
+    expect(screen.getByLabelText("Description")).toHaveValue("Details");
+    expect(screen.getByLabelText("Amount")).toHaveValue("Value");
+    expect(m.previewBomImport).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(m.previewGenericImport).toHaveBeenCalledWith(2, genericCsv, {
+      date: "When",
+      date_format: "mdy",
+      description: "Details",
+      payee: null,
+      amount: "Value",
+      debit: null,
+      credit: null,
+      balance: "Balance",
+    });
+    expect(await screen.findByText("Corner Bakery")).toBeInTheDocument();
+    // Back to the mapping form without losing the file.
+    await user.click(screen.getByRole("button", { name: "Back to mapping" }));
+    expect(screen.getByText("Map the columns")).toBeInTheDocument();
+  });
+
+  it("applies a saved preset to the mapping", async () => {
+    const genericCsv = "When,Details,Value\r\n18/11/2026,Bakery,-6.50\r\n";
+    m.importShape.mockResolvedValue({
+      headers: ["When", "Details", "Value"],
+      mapping: {
+        date: "",
+        date_format: "mdy",
+        description: "",
+        payee: null,
+        amount: null,
+        debit: null,
+        credit: null,
+        balance: null,
+      },
+    });
+    m.listImportPresets.mockResolvedValue([
+      {
+        id: 7,
+        name: "ANZ everyday",
+        mapping: {
+          date: "When",
+          date_format: "dmy",
+          description: "Details",
+          payee: null,
+          amount: "Value",
+          debit: null,
+          credit: null,
+          balance: null,
+        },
+      },
+    ]);
+    const { user } = renderPage();
+    await screen.findByLabelText("Import into");
+    await upload(user, genericCsv, "anz.csv");
+    await screen.findByText("Map the columns");
+
+    await user.selectOptions(screen.getByLabelText("Saved preset"), "7");
+    expect(screen.getByLabelText("Date")).toHaveValue("When");
+    expect(screen.getByLabelText("Date format")).toHaveValue("dmy");
+    expect(screen.getByLabelText("Amount")).toHaveValue("Value");
+  });
+
+  it("saves the current mapping as a preset", async () => {
+    const genericCsv = "When,Details,Value\r\n18/11/2026,Bakery,-6.50\r\n";
+    m.importShape.mockResolvedValue({
+      headers: ["When", "Details", "Value"],
+      mapping: {
+        date: "When",
+        date_format: "mdy",
+        description: "Details",
+        payee: null,
+        amount: "Value",
+        debit: null,
+        credit: null,
+        balance: null,
+      },
+    });
+    m.saveImportPreset.mockResolvedValue({
+      id: 9,
+      name: "My bank",
+      mapping: {
+        date: "When",
+        date_format: "mdy",
+        description: "Details",
+        payee: null,
+        amount: "Value",
+        debit: null,
+        credit: null,
+        balance: null,
+      },
+    });
+    const { user } = renderPage();
+    await screen.findByLabelText("Import into");
+    await upload(user, genericCsv, "anz.csv");
+    await screen.findByText("Map the columns");
+
+    await user.type(screen.getByLabelText("Save as preset"), "My bank");
+    await user.click(screen.getByRole("button", { name: "Save preset" }));
+    expect(m.saveImportPreset).toHaveBeenCalledWith("My bank", {
+      date: "When",
+      date_format: "mdy",
+      description: "Details",
+      payee: null,
+      amount: "Value",
+      debit: null,
+      credit: null,
+      balance: null,
+    });
+    // The new preset appears in the list and is selected.
+    expect(await screen.findByLabelText("Saved preset")).toHaveValue("9");
+  });
+
+  it("shows a mapping mistake next to the mapping form", async () => {
+    const genericCsv = "When,Details,Value\r\n18/11/2026,Bakery,-6.50\r\n";
+    m.importShape.mockResolvedValue({
+      headers: ["When", "Details", "Value"],
+      mapping: {
+        date: "When",
+        date_format: "mdy",
+        description: "Details",
+        payee: null,
+        amount: "Value",
+        debit: null,
+        credit: null,
+        balance: null,
+      },
+    });
+    m.previewGenericImport.mockRejectedValueOnce({
+      code: "invalid",
+      field: "mapping",
+      message: 'The amount column "Value" isn\'t in this file.',
+    });
+    const { user } = renderPage();
+    await screen.findByLabelText("Import into");
+    await upload(user, genericCsv, "anz.csv");
+    await user.click(await screen.findByRole("button", { name: "Preview" }));
+    expect(await screen.findByText(/The amount column/)).toBeInTheDocument();
+    expect(screen.getByText("Map the columns")).toBeInTheDocument();
   });
 });

@@ -9,6 +9,8 @@
 //! the owner can decide.
 
 pub mod bom;
+pub mod generic;
+pub mod presets;
 
 use std::collections::{HashMap, HashSet};
 

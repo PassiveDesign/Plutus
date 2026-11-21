@@ -57,7 +57,8 @@ Feature scope is a first draft — edit freely.
 - [x] Bank of Melbourne CSV importer: parse + preview + commit (core + commands)
 - [x] Import screen: choose file and account, preview with statuses, Import
 - [x] Duplicate detection on import (import key = date + amount + description + occurrence; flags hand-entered look-alikes)
-- [ ] Generic CSV import with column mapping, saved as reusable presets
+- [x] Generic CSV import with column mapping, saved as reusable presets
+      (migration 0010 `import_presets`)
 - [ ] OFX/QFX and QIF import (only if the bank's export menu offers them)
 - [ ] Optional: PDF statement import (for history beyond the online-banking export window)
 - [ ] Open banking (CDR): revisit only if a way to receive data locally without a cloud intermediary becomes available — see DECISIONS

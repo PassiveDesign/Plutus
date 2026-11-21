@@ -8,6 +8,16 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ### Newest first
 
+- **Generic CSV import + presets done.** `plutus-core::import::generic`
+  (`headers`, `shape`, `guess_mapping`, `validate`, `parse`) and
+  `import::presets` (list/save/delete, migration 0010); commands `import_shape`,
+  `preview_generic_import`, `list_import_presets`, `save_import_preset`,
+  `delete_import_preset`. `ImportPage` picks the importer from the header row:
+  Bank of Melbourne's exact columns use the existing parser, anything else
+  opens a "Map the columns" form (with date format, amount vs debit/credit,
+  optional payee/balance) that can be saved as a named preset. 143 core,
+  20 shell, 161 UI tests.
+
 - **M7 CSV export done.** `plutus-core::export` writes the transactions matching the filters to `exports/transactions-<stamp>.csv` (plain text, signed amounts, oldest first). Command `export_transactions`; "Export CSV" button on the Transactions page. 130 core tests (5 new), 157 UI tests (4 new); checked in the browser preview. `errorMessage` now returns the message for plain `Error` objects instead of "Error: …".
 - **v0.7.0 built as a draft release** (run 44894810100, both platforms green):
   `Plutus_0.7.0_x64-setup.exe` 3.5 MB, `.msi` 4.7 MB, `.AppImage` 79.8 MB,
@@ -26,12 +36,12 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. v0.8.0 is tagged and building (CSV export). When the draft release is ready,
-   owner smoke test: budgets, dashboard, reports, backup + restore, export.
-   If good, publish with `gh release edit v0.8.0 --draft=false --latest`.
-2. Remaining M7: auto-lock after idle (optional; the owner has not asked for it).
-3. Next milestone by the roadmap: M4 import (Bank of Melbourne CSV) — the owner
-   already supplied a real header + one line, so the importer can start.
+1. **v0.8.0 (CSV export)** is building as a draft release; owner smoke test,
+   then publish with `gh release edit v0.8.0 --draft=false --latest`.
+2. **Generic CSV import** is on `main`; cut it as v0.9.0 once v0.8.0 is
+   published (bump the three version files, tag, release).
+3. Remaining M7: auto-lock after idle (optional; the owner has not asked).
+4. Remaining M4: OFX/QFX and QIF import, then optional PDF statements.
 
 ## Open questions for the owner
 
