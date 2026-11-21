@@ -99,7 +99,22 @@ export type Transaction = TransactionInput & {
   id: number;
   created_at: string;
   updated_at: string | null;
+  /** Shared by both legs of a transfer; null for ordinary transactions. */
+  transfer_id: number | null;
+  /** For transfer legs: the account on the other side. */
+  transfer_account_id: number | null;
 };
+
+/** Amount is positive cents moved from `from_account` to `to_account`. */
+export type TransferInput = {
+  from_account: number;
+  to_account: number;
+  date: string;
+  amount: number;
+  memo: string | null;
+};
+
+export type Transfer = { id: number; from: Transaction; to: Transaction };
 
 /** A listed transaction with the account balance after it. `running_balance`
  *  is null unless the query is for one account, and for rows dated before the
@@ -144,5 +159,9 @@ export const api = {
   addTransaction: (input: TransactionInput) => invoke<Transaction>("add_transaction", { input }),
   updateTransaction: (id: number, input: TransactionInput) =>
     invoke<Transaction>("update_transaction", { id, input }),
+  /** Deleting either leg of a transfer deletes both. */
   deleteTransaction: (id: number) => invoke<void>("delete_transaction", { id }),
+  createTransfer: (input: TransferInput) => invoke<Transfer>("create_transfer", { input }),
+  updateTransfer: (id: number, input: TransferInput) =>
+    invoke<Transfer>("update_transfer", { id, input }),
 };

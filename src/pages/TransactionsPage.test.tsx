@@ -2,7 +2,15 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../components";
-import { Account, api, LedgerRow, Transaction, TransactionInput, TransactionQuery } from "../lib/api";
+import {
+  Account,
+  api,
+  LedgerRow,
+  Transaction,
+  TransactionInput,
+  TransactionQuery,
+  TransferInput,
+} from "../lib/api";
 import { TransactionsPage } from "./TransactionsPage";
 
 vi.mock("../lib/api", async (orig) => {
@@ -17,6 +25,8 @@ vi.mock("../lib/api", async (orig) => {
       addTransaction: vi.fn(),
       updateTransaction: vi.fn(),
       deleteTransaction: vi.fn(),
+      createTransfer: vi.fn(),
+      updateTransfer: vi.fn(),
       parseMoney: vi.fn(),
     },
   };
@@ -57,6 +67,8 @@ function tx(account_id: number, date: string, amount: number, payee: string | nu
     cleared: false,
     created_at: "x",
     updated_at: null,
+    transfer_id: null,
+    transfer_account_id: null,
     ...over,
   };
 }
@@ -116,7 +128,26 @@ beforeEach(() => {
     return txs[i];
   });
   m.deleteTransaction.mockImplementation(async (id: number) => {
-    txs = txs.filter((t) => t.id !== id);
+    const group = txs.find((t) => t.id === id)?.transfer_id;
+    txs = txs.filter((t) => t.id !== id && (group == null || t.transfer_id !== group));
+  });
+  m.createTransfer.mockImplementation(async (input: TransferInput) => {
+    const name = (id: number) => accounts.find((a) => a.id === id)!.name;
+    const out = tx(input.from_account, input.date, -input.amount, `Transfer to ${name(input.to_account)}`, {
+      memo: input.memo,
+      transfer_account_id: input.to_account,
+    });
+    const inc = tx(input.to_account, input.date, input.amount, `Transfer from ${name(input.from_account)}`, {
+      memo: input.memo,
+      transfer_account_id: input.from_account,
+    });
+    out.transfer_id = inc.transfer_id = out.id;
+    txs.push(out, inc);
+    return { id: out.id, from: out, to: inc };
+  });
+  m.updateTransfer.mockImplementation(async (id: number) => {
+    const [from, to] = txs.filter((t) => t.transfer_id === id).sort((a, b) => a.amount - b.amount);
+    return { id, from, to };
   });
 });
 
@@ -308,6 +339,99 @@ describe("TransactionsPage", () => {
     await user.selectOptions(screen.getByLabelText("Account"), "1");
     const cell = await screen.findByText("-$125.00", { selector: "span" });
     expect(cell).toHaveClass("money", "negative");
+  });
+
+  it("adds a transfer from the filtered account; payee fields are hidden", async () => {
+    const user = renderPage();
+    await screen.findByText("No transactions yet.");
+    await user.selectOptions(screen.getByLabelText("Account"), "1");
+    await user.click(screen.getByRole("button", { name: "Add transaction" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByLabelText("Transfer"));
+    expect(within(dialog).getByRole("heading", { name: "Add transfer" })).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Payee")).toBeNull();
+    expect(within(dialog).queryByLabelText(/Cleared/)).toBeNull();
+    expect(within(dialog).getByLabelText("From account")).toHaveValue("1");
+    expect(within(dialog).getByLabelText("To account")).toHaveValue("2"); // first other account
+    await user.type(within(dialog).getByLabelText("Amount"), "250");
+    await user.type(within(dialog).getByLabelText("Memo"), "Power bill money");
+    await user.click(within(dialog).getByRole("button", { name: "Add transfer" }));
+    expect(m.createTransfer).toHaveBeenCalledWith({
+      from_account: 1,
+      to_account: 2,
+      date: expect.any(String),
+      amount: 25_000,
+      memo: "Power bill money",
+    });
+    expect(m.addTransaction).not.toHaveBeenCalled();
+    expect(await screen.findByRole("status")).toHaveTextContent("Transfer added.");
+    expect(await screen.findByText("Transfer to Bills Offset")).toBeInTheDocument();
+  });
+
+  it("transfer errors land on the matching picker", async () => {
+    m.createTransfer.mockRejectedValueOnce({
+      code: "invalid",
+      field: "to_account",
+      message: "Choose a different account to transfer to.",
+    });
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Add transaction" }));
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByLabelText("Transfer"));
+    await user.selectOptions(within(dialog).getByLabelText("To account"), "1");
+    await user.type(within(dialog).getByLabelText("Amount"), "5");
+    await user.click(within(dialog).getByRole("button", { name: "Add transfer" }));
+    expect(within(dialog).getByLabelText("To account")).toHaveAccessibleDescription(
+      "Choose a different account to transfer to.",
+    );
+
+    m.createTransfer.mockRejectedValueOnce({ code: "invalid", field: "from_account", message: "Old Saver is archived." });
+    await user.selectOptions(within(dialog).getByLabelText("To account"), "2");
+    await user.click(within(dialog).getByRole("button", { name: "Add transfer" }));
+    expect(await within(dialog).findByText("Old Saver is archived.")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("From account")).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("editing either leg of a transfer edits the transfer, from the outgoing side", async () => {
+    const out = tx(1, "2026-11-15", -25_000, "Transfer to Bills Offset", { transfer_account_id: 2 });
+    const inc = tx(2, "2026-11-15", 25_000, "Transfer from Everyday Offset", { transfer_account_id: 1 });
+    out.transfer_id = inc.transfer_id = out.id;
+    txs = [out, inc];
+    const user = renderPage();
+    await user.click(await screen.findByText("Transfer from Everyday Offset")); // incoming leg
+    const dialog = screen.getByRole("dialog", { name: "Edit transfer" });
+    expect(within(dialog).queryByRole("radio")).toBeNull(); // type is fixed
+    expect(within(dialog).getByLabelText("From account")).toHaveValue("1");
+    expect(within(dialog).getByLabelText("To account")).toHaveValue("2");
+    expect(within(dialog).getByLabelText("Amount")).toHaveValue("250.00");
+    await user.clear(within(dialog).getByLabelText("Amount"));
+    await user.type(within(dialog).getByLabelText("Amount"), "300");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(m.updateTransfer).toHaveBeenCalledWith(out.id, expect.objectContaining({ from_account: 1, to_account: 2, amount: 30_000 }));
+    expect(m.updateTransaction).not.toHaveBeenCalled();
+  });
+
+  it("deleting a transfer says both sides go", async () => {
+    const out = tx(1, "2026-11-15", -100, "Transfer to Bills Offset", { transfer_account_id: 2 });
+    const inc = tx(2, "2026-11-15", 100, "Transfer from Everyday Offset", { transfer_account_id: 1 });
+    out.transfer_id = inc.transfer_id = out.id;
+    txs = [out, inc];
+    const user = renderPage();
+    await user.click(await screen.findByText("Transfer to Bills Offset"));
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(screen.getByRole("button", { name: "Really delete both sides?" }));
+    expect(m.deleteTransaction).toHaveBeenCalledWith(out.id);
+    expect(await screen.findByText("No transactions yet.")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Transfer deleted.");
+  });
+
+  it("an existing ordinary transaction can't be turned into a transfer", async () => {
+    txs = [tx(1, "2026-11-10", -500, "Coffee")];
+    const user = renderPage();
+    await user.click(await screen.findByText("Coffee"));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByLabelText("Money out")).toBeChecked();
+    expect(within(dialog).queryByLabelText("Transfer")).toBeNull();
   });
 
   it("load failure shows a retry", async () => {

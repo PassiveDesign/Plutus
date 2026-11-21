@@ -100,3 +100,10 @@ Short, dated entries. Future sessions follow these without re-deciding.
   the account's whole history, then filtered/paged), so date filters and
   paging never change the figures. Shown only when the Transactions page is
   filtered to one account; pre-opening rows show "—".
+- **2026-11-21 — Transfers are two linked transactions** sharing
+  `transfer_id` (the outgoing leg's id), created/updated/deleted together
+  in one SQL transaction. Payees are generated ("Transfer to/from X").
+  Ordinary edits may change a leg's payee, memo and cleared flag only;
+  account/date/amount change via `transfers::update`. Deleting either leg
+  deletes both. An existing ordinary transaction can't be converted into a
+  transfer (delete and re-add); that may come with import matching (M4).

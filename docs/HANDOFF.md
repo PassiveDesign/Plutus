@@ -71,6 +71,14 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `list_transactions` command now returns `LedgerRow`s. TransactionsPage
   shows a Balance column when filtered to one account ("—" before the
   opening date). 70 core tests, 95 UI tests.
+- **Transfers done:** migration 0004 (schema v4, `transfer_id`),
+  `plutus-core::transfers` (`TransferInput`, `Transfer`, create/get/update/
+  delete), `Transaction.transfer_id` + `transfer_account_id` (other leg's
+  account, via a correlated subquery in the `columns!()` macro). Commands
+  `create_transfer`, `update_transfer` (delete uses `delete_transaction`).
+  TransactionForm: Money out / Money in / Transfer; editing either leg edits
+  the transfer from the outgoing side; "Really delete both sides?". 77 core,
+  7 shell, 100 UI tests. **M2 complete.**
 - **Open PR #1 (`design/passive-ui`, another session):** Passive UI redesign.
   Owner said leave it; merge conflicts expected in `AccountsPage.tsx`,
   `App.css`, docs. Note its commit `9713101` accidentally also contains this
@@ -116,20 +124,18 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-**M2 — Transfers between accounts** (last M2 task before v0.3.0):
-- Migration 0004: `ALTER TABLE transactions ADD COLUMN transfer_id INTEGER`
-  (nullable) + index. A transfer = two transactions sharing a `transfer_id`
-  (use the first leg's id): money out of A, the same amount into B, same
-  date.
-- Core: `transfers::create(db, from, to, date, amount, memo)` inserts both
-  legs in one SQL transaction; `update`/`delete` of either leg act on both
-  (delete removes both; editing amount/date keeps them mirrored; editing
-  payee/memo per leg ok). Validation: different accounts, both active,
-  amount > 0. Tests incl. balances of both accounts.
-- `Transaction` gains `transfer_id: Option<i64>` (and TS type).
-- UI: TransactionForm gets a third choice "Transfer" with a "To account"
-  picker; transfer rows show "Transfer to/from X" and edit via the same form.
-Then cut **v0.3.0** (transactions) for the owner.
+**Cut v0.3.0** (transactions release):
+1. Bump `0.2.0` → `0.3.0` in `package.json`, `src-tauri/Cargo.toml`,
+   `src-tauri/tauri.conf.json`; `npm install --package-lock-only` and
+   `cargo update -w` for the lockfiles. Commit in a worktree, push to main.
+2. Tag `v0.3.0`, watch Release, check the 5 assets.
+3. Owner smoke test: install over v0.2.0 → unlock (DB upgrades v2 → v4
+   silently, real accounts intact) → add transactions, a transfer between
+   two offsets, check running balances and account balances, cleared
+   toggle, edit/delete → restart. Then publish and tick M2.5.
+
+Then **M3 — Categories** (migration adds `categories` table and
+`transactions.category_id` via ALTER).
 
 ## Open questions for the owner
 

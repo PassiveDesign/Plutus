@@ -73,9 +73,9 @@ export function TransactionsPage() {
     }
   }
 
-  function onDone(verb: TxVerb) {
+  function onDone(verb: TxVerb, what: "Transaction" | "Transfer") {
     setEditing(null);
-    toast.success(`Transaction ${verb}.`);
+    toast.success(`${what} ${verb}.`);
     void load();
   }
 

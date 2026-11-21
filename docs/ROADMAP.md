@@ -34,7 +34,11 @@ Feature scope is a first draft — edit freely.
 - [x] Commands + typed TS API (`list_transactions`, `count_transactions`, `add/update/delete_transaction`, `account_balances`); Accounts page shows real balances
 - [x] Transactions page: table (date, payee/description, account, amount, cleared), account + date filters, paging, add/edit/delete dialog
 - [x] Running balance per account in the transactions table (needs account filter)
-- [ ] Transfers between accounts (paired transactions; migration adds `transfer_id`)
+- [x] Transfers between accounts (paired transactions; migration adds `transfer_id`)
+
+## M2.5 — Release
+
+- [ ] Cut `v0.3.0` (transactions, running balances, transfers); owner enters real transactions; verify v2 → v4 database upgrade
 
 ## M3 — Categories & rules
 

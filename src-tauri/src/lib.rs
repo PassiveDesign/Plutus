@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use plutus_core::{
     Account, AccountInput, Database, DbError, LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError,
-    Transaction, TransactionInput, TransactionQuery, Vault, accounts, transactions,
+    Transaction, TransactionInput, TransactionQuery, Transfer, TransferInput, Vault, accounts,
+    transactions, transfers,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -231,6 +232,22 @@ async fn delete_transaction(state: State<'_, AppState>, id: i64) -> CmdResult<()
     with_db(&state.vault, move |db| transactions::delete(db, id)).await
 }
 
+/// Move money between two accounts (creates both legs).
+#[tauri::command]
+async fn create_transfer(state: State<'_, AppState>, input: TransferInput) -> CmdResult<Transfer> {
+    with_db(&state.vault, move |db| transfers::create(db, &input)).await
+}
+
+/// Change a transfer's accounts, date, amount or memo (both legs).
+#[tauri::command]
+async fn update_transfer(
+    state: State<'_, AppState>,
+    id: i64,
+    input: TransferInput,
+) -> CmdResult<Transfer> {
+    with_db(&state.vault, move |db| transfers::update(db, id, &input)).await
+}
+
 /// Close the database; the UI returns to the unlock screen.
 #[tauri::command]
 fn lock_vault(state: State<'_, AppState>) {
@@ -266,7 +283,9 @@ pub fn run() {
             count_transactions,
             add_transaction,
             update_transaction,
-            delete_transaction
+            delete_transaction,
+            create_transfer,
+            update_transfer
         ])
         .run(tauri::generate_context!())
         .expect("error while running Plutus");
@@ -412,6 +431,48 @@ mod tests {
                 .await
                 .unwrap_err();
             assert_eq!(e.code, "record_not_found");
+        });
+    }
+
+    #[test]
+    fn transfer_commands_create_update_and_report_field_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        guard(&vault).create("long enough pw").unwrap();
+        tauri::async_runtime::block_on(async {
+            let a = with_db(&vault, |db| accounts::create(db, &input("Everyday")))
+                .await
+                .unwrap();
+            let b = with_db(&vault, |db| accounts::create(db, &input("Bills")))
+                .await
+                .unwrap();
+            let make = |from: i64, to: i64, cents: i64| -> TransferInput {
+                serde_json::from_value(serde_json::json!({
+                    "from_account": from, "to_account": to,
+                    "date": "2026-11-15", "amount": cents
+                }))
+                .unwrap()
+            };
+            let t_in = make(a.id, b.id, 1000);
+            let t = with_db(&vault, move |db| transfers::create(db, &t_in))
+                .await
+                .unwrap();
+            let json = serde_json::to_value(&t).unwrap();
+            assert_eq!(json["from"]["amount"], -1000);
+            assert_eq!(json["to"]["transfer_account_id"], a.id);
+
+            let id = t.id;
+            let up = make(a.id, b.id, 2500);
+            let u = with_db(&vault, move |db| transfers::update(db, id, &up))
+                .await
+                .unwrap();
+            assert_eq!(u.to.amount.cents(), 2500);
+
+            let same = make(a.id, a.id, 100);
+            let e = with_db(&vault, move |db| transfers::create(db, &same))
+                .await
+                .unwrap_err();
+            assert_eq!((e.code, e.field), ("invalid", Some("to_account")));
         });
     }
 }
