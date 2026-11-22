@@ -8,6 +8,17 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ### Newest first
 
+- **v1.0.0 cut (M8 complete).** Version 1.0.0 in `package.json`,
+  `package-lock.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`.
+  Icon: gold uppercase "P" on a dark rounded square, all Tauri sizes
+  regenerated from `src-tauri/app-icon.png` (Android/iOS sets dropped —
+  desktop only). Keyboard shortcuts: Ctrl/Cmd+1–9 jumps to the page at that
+  sidebar position (`usePageShortcuts`, `shortcutLabel`), Ctrl/Cmd+L locks;
+  sidebar items show the hint in their tooltip. Empty states added to Budgets
+  ("No categories to budget yet") and Reports ("Nothing to report yet");
+  Transactions, Accounts and Categories already had them. Tests: 163 core,
+  21 shell, 180 UI; clippy `-D warnings` and fmt clean.
+
 - **Auto-lock after 15 minutes idle (M7).** `useIdleLock` hook; `AppShell`
   uses it so the vault locks itself after 15 minutes without pointer, key,
   wheel or touch input. Fixed interval, no setting. Tests: 171 UI.
@@ -58,15 +69,17 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. Publish the drafts: v0.8.0 and v0.9.0 are drafts with all five installers
-   (v0.9.0 has no Windows assets — the hosted runner is gated off). Smoke-test
-   v0.9.0, then `gh release edit v0.9.0 --draft=false --latest` and delete
-   v0.8.0.
-2. Cut `v0.10.0` (valuations) after the draft backlog is cleared; verify the
-   v9 → v11 upgrade on first unlock.
-3. Remaining M7: auto-lock after idle (optional).
-4. Remaining M4: OFX/QFX/QIF import, optional PDF.
-5. M8: app icon and branding, polish, keyboard shortcuts.
+1. Smoke-test `v1.0.0` (draft; Linux assets only — the Windows runner is
+   gated off until a Windows host is reachable). Install over the oldest
+   database you have and verify the v9 → v11 upgrade on first unlock. Then
+   `gh release edit v1.0.0 --draft=false --latest` and delete the older drafts
+   (v0.8.0, v0.9.0).
+2. Windows installers: register a Windows self-hosted runner (SSH host details
+   are in `~/.ssh/config` as `desktop-nboqe7o`, but it is on a different VLAN
+   and unreachable from this host), or restore GitHub billing and set
+   `WINDOWS_CI=true`.
+3. Optional M4: PDF statement import; open banking only if a local-only path
+   appears.
 
 ## Open questions for the owner
 
