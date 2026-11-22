@@ -8,6 +8,10 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ### Newest first
 
+- **Auto-lock after 15 minutes idle (M7).** `useIdleLock` hook; `AppShell`
+  uses it so the vault locks itself after 15 minutes without pointer, key,
+  wheel or touch input. Fixed interval, no setting. Tests: 171 UI.
+
 - **OFX/QFX and QIF import.** `import::ofx` reads both OFX flavours (SGML and
   XML) with one tolerant scanner; `import::qif` reads QIF with an explicit
   date format. Commands `preview_ofx_import` and `preview_qif_import`.

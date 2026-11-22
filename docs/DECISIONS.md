@@ -221,3 +221,12 @@ Short, dated entries. Future sessions follow these without re-deciding.
   Importer choice is by content, not file extension: OFX/QFX by `OFXHEADER`/
   `<OFX>`, QIF by a `!Type:` header, Bank of Melbourne by its exact column
   row, everything else by column mapping.
+
+- **2026-11-22 — Auto-lock after 15 minutes idle.** The vault locks itself
+  after 15 minutes without pointer, key, wheel or touch input, so a window
+  left open on a desk doesn't stay unlocked. The check runs on a 30-second
+  timer rather than a per-event timeout, so a long-open window with no input
+  still locks; activity is read from real DOM events so a paused render isn't
+  mistaken for the owner being present. It fires once per unlock. Ctrl+L still
+  locks immediately. Fifteen minutes is fixed rather than a setting — the
+  owner asked for none, and a wrong setting is worse than a sensible default.

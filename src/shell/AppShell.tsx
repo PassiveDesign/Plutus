@@ -8,8 +8,12 @@ import { ImportPage } from "../pages/ImportPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { TransactionsPage } from "../pages/TransactionsPage";
+import { useIdleLock } from "../lib/useIdleLock";
 import { pageById, PageId } from "./pages";
 import { Sidebar } from "./Sidebar";
+
+/** Lock the vault after this long without input. */
+export const IDLE_LOCK_MS = 15 * 60 * 1000;
 
 type Props = { version: string; minPasswordChars: number; onLock: () => void };
 
@@ -31,6 +35,10 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
     setCurrent("transactions");
   }
   const page = pageById(current);
+
+  // Lock after 15 minutes without input, so a left-open window doesn't sit
+  // unlocked. Ctrl+L locks immediately.
+  useIdleLock(onLock, IDLE_LOCK_MS);
 
   // Ctrl+L (Cmd+L on macOS) locks the app from anywhere.
   useEffect(() => {
