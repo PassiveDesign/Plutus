@@ -120,6 +120,14 @@ export function BudgetPage({ initialMonth }: Props) {
             {formatCents(data.uncategorised_spent)} · Income {formatCents(data.income)}
           </p>
 
+          {byGroup.length === 0 ? (
+            <div className="table-empty empty-cta">
+              <p>No categories to budget yet.</p>
+              <p className="muted">
+                Add categories on the Categories page, then set a monthly amount here.
+              </p>
+            </div>
+          ) : (
           <div className="table-wrap">
             <table className="data-table budget-table">
               <caption className="sr-only">Budget for {formatMonth(month)}</caption>
@@ -172,6 +180,7 @@ export function BudgetPage({ initialMonth }: Props) {
               ))}
             </table>
           </div>
+          )}
         </>
       )}
     </div>

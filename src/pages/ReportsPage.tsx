@@ -109,6 +109,17 @@ export function ReportsPage({ now = thisMonth() }: { now?: string }) {
             </div>
           </div>
 
+          {data.totals.income === 0 &&
+            data.totals.spending === 0 &&
+            data.spending_by_category.length === 0 && (
+              <div className="table-empty empty-cta">
+                <p>Nothing to report yet.</p>
+                <p className="muted">
+                  Import transactions or add some by hand and this fills in.
+                </p>
+              </div>
+            )}
+
           <section className="dash-panel" aria-labelledby="inout-h">
             <h2 id="inout-h">Income vs spending</h2>
             <PairedBarChart

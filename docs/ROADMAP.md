@@ -79,7 +79,8 @@ Feature scope is a first draft — edit freely.
 
 ## M5b.5 — Release
 
-- [ ] Cut `v0.10.0` (valuations); verify v9 → v11 upgrade
+- [x] Folded into `v1.0.0` rather than cut separately (valuations, OFX/QFX and
+      QIF import, auto-lock, icon, shortcuts); verify v9 → v11 upgrade
 
 ## M6 — Reports & dashboard
 
@@ -95,7 +96,8 @@ Feature scope is a first draft — edit freely.
 
 - [x] Cut `v0.7.0` (backup / restore); verify v9 → v9 upgrade (draft release
       built 2026-11-21; awaiting owner smoke test)
-- [ ] Cut `v0.8.0` (CSV export); verify v9 → v9 upgrade
+- [x] Cut `v0.8.0` (CSV export) and `v0.9.0` (generic CSV import) as draft
+      releases; both await the owner's smoke test. Superseded by `v1.0.0`.
 
 - [x] Backup / restore the database file from Settings (backups beside the
       database; restore keeps a pre-restore copy)
@@ -104,6 +106,8 @@ Feature scope is a first draft — edit freely.
 
 ## M8 — v1.0
 
-- [ ] App icon and branding
-- [ ] Polish pass, keyboard shortcuts, empty states
+- [x] App icon and branding (gold uppercase "P" on a dark rounded square;
+      all Tauri sizes regenerated from `src-tauri/app-icon.png`)
+- [x] Polish pass, keyboard shortcuts (Ctrl/Cmd+1–9 pages, Ctrl+L lock),
+      empty states (Budget, Reports, Transactions, Accounts)
 - [ ] Cut `v1.0.0`
