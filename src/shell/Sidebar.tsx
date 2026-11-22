@@ -1,4 +1,5 @@
 import { Lock } from "lucide-react";
+import { shortcutLabel } from "../lib/usePageShortcuts";
 import { PageDef, PageId, PAGES, SETTINGS_PAGE } from "./pages";
 
 type Props = {
@@ -8,7 +9,18 @@ type Props = {
   version: string;
 };
 
-function NavItem({ page, active, onClick }: { page: PageDef; active: boolean; onClick: () => void }) {
+function NavItem({
+  page,
+  active,
+  index,
+  onClick,
+}: {
+  page: PageDef;
+  active: boolean;
+  /** Position in sidebar order, for the shortcut hint. */
+  index: number;
+  onClick: () => void;
+}) {
   const Icon = page.icon;
   return (
     <li>
@@ -16,6 +28,7 @@ function NavItem({ page, active, onClick }: { page: PageDef; active: boolean; on
         type="button"
         className={`nav-item${active ? " active" : ""}`}
         aria-current={active ? "page" : undefined}
+        title={`${page.label} (${shortcutLabel(index)})`}
         onClick={onClick}
       >
         <Icon size={18} aria-hidden="true" />
@@ -31,8 +44,14 @@ export function Sidebar({ current, onNavigate, onLock, version }: Props) {
       <div className="brand">Plutus</div>
 
       <ul className="nav-list">
-        {PAGES.map((p) => (
-          <NavItem key={p.id} page={p} active={p.id === current} onClick={() => onNavigate(p.id)} />
+        {PAGES.map((p, i) => (
+          <NavItem
+            key={p.id}
+            page={p}
+            active={p.id === current}
+            index={i}
+            onClick={() => onNavigate(p.id)}
+          />
         ))}
       </ul>
 
@@ -41,6 +60,7 @@ export function Sidebar({ current, onNavigate, onLock, version }: Props) {
           <NavItem
             page={SETTINGS_PAGE}
             active={current === SETTINGS_PAGE.id}
+            index={PAGES.length}
             onClick={() => onNavigate(SETTINGS_PAGE.id)}
           />
           <li>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AccountsPage } from "../pages/AccountsPage";
 import { BudgetPage } from "../pages/BudgetPage";
 import { DashboardPage } from "../pages/DashboardPage";
@@ -9,7 +9,8 @@ import { PlaceholderPage } from "../pages/PlaceholderPage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { TransactionsPage } from "../pages/TransactionsPage";
 import { useIdleLock } from "../lib/useIdleLock";
-import { pageById, PageId } from "./pages";
+import { usePageShortcuts } from "../lib/usePageShortcuts";
+import { ALL_PAGES, pageById, PageId } from "./pages";
 import { Sidebar } from "./Sidebar";
 
 /** Lock the vault after this long without input. */
@@ -34,6 +35,17 @@ export function AppShell({ version, minPasswordChars, onLock }: Props) {
     setTxAccount(id);
     setCurrent("transactions");
   }
+
+  // Ctrl/Cmd+1…8 jumps to a page in sidebar order. Stable so the listener is
+  // installed once rather than re-bound on every render.
+  const goToIndex = useCallback((index: number) => {
+    const target = ALL_PAGES[index];
+    if (!target) return;
+    setTxAccount(null);
+    setCurrent(target.id);
+  }, []);
+  usePageShortcuts(goToIndex, ALL_PAGES.length);
+
   const page = pageById(current);
 
   // Lock after 15 minutes without input, so a left-open window doesn't sit
