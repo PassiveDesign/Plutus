@@ -197,3 +197,16 @@ Short, dated entries. Future sessions follow these without re-deciding.
   0010, `import_presets`, mapping as JSON, names unique case-insensitively);
   saving an existing name replaces it. The importer picks by header row, not
   by file name or bank.
+
+- **2026-11-22 — Valuations for valued accounts.** Super, shares, investment and
+  property accounts are tracked by market value, not by bank transactions. A
+  valuation is a date plus a signed cents value (assets positive) and an
+  optional note; migration 0011 adds `valuations` with one row per account per
+  day (`UNIQUE (account_id, date)`), so re-entering a date corrects it rather
+  than duplicating it. Editing a valuation onto a date that already has one is
+  a conflict, not a silent overwrite. The balance of a valued account is its
+  latest valuation; with no valuation it falls back to the opening balance, so
+  existing accounts keep working. Valuations only apply to the four valued
+  kinds — anything else is rejected. The Accounts page shows "Update value"
+  only on those accounts and opens the history with the latest figure
+  pre-filled.

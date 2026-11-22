@@ -17,6 +17,10 @@ vi.mock("../lib/api", async (orig) => {
       setAccountArchived: vi.fn(),
       parseMoney: vi.fn(),
       accountBalances: vi.fn(),
+      listValuations: vi.fn(),
+      addValuation: vi.fn(),
+      updateValuation: vi.fn(),
+      deleteValuation: vi.fn(),
     },
   };
 });
@@ -57,6 +61,20 @@ beforeEach(() => {
   m.listAccounts.mockImplementation(async () => store.map((a) => ({ ...a })));
   m.parseMoney.mockImplementation(fakeParse);
   m.accountBalances.mockResolvedValue({}); // no transactions: opening balances apply
+  m.listValuations.mockResolvedValue([]);
+  m.addValuation.mockImplementation(async (accountId: number, input) => ({
+    id: 1,
+    account_id: accountId,
+    ...input,
+    created_at: "2026-11-20T00:00:00Z",
+  }));
+  m.updateValuation.mockImplementation(async (id: number, input) => ({
+    id,
+    account_id: 1,
+    ...input,
+    created_at: "2026-11-20T00:00:00Z",
+  }));
+  m.deleteValuation.mockResolvedValue(undefined);
   m.createAccount.mockImplementation(async (input: AccountInput) => {
     const a = acct(store.length + 1, { ...input });
     store.push(a);
@@ -303,6 +321,91 @@ describe("AccountsPage", () => {
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add account" }));
     await screen.findByText("Bills Account");
     expect(m.accountBalances).toHaveBeenCalledTimes(2);
+  });
+
+  it("only valued accounts offer Update value", async () => {
+    store = [
+      acct(1, { name: "Everyday", kind: "savings" }),
+      acct(2, { name: "Super", kind: "super" }),
+    ];
+    renderPage();
+    await screen.findAllByText("Super"); // name cell and type cell
+    expect(screen.getAllByRole("button", { name: "Update value" })).toHaveLength(1);
+  });
+
+  it("records a valuation and reloads balances", async () => {
+    store = [acct(1, { name: "Super", kind: "super", opening_balance: 100_000 })];
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Update value" }));
+    const dialog = screen.getByRole("dialog", { name: "Valuations — Super" });
+    const value = within(dialog).getByLabelText("Value");
+    await user.clear(value);
+    await user.type(value, "131,500");
+    await user.click(within(dialog).getByRole("button", { name: "Save valuation" }));
+
+    expect(m.parseMoney).toHaveBeenCalledWith("131,500");
+    expect(m.addValuation).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ value: 13_150_000, note: null, date: expect.any(String) }),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(/saved\./);
+    expect(m.accountBalances).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows history and edits an existing valuation", async () => {
+    store = [acct(1, { name: "Super", kind: "super" })];
+    m.listValuations.mockResolvedValue([
+      {
+        id: 7,
+        account_id: 1,
+        date: "2026-09-30",
+        value: 12_000_000,
+        note: "annual statement",
+        created_at: "2026-09-30T00:00:00Z",
+      },
+    ]);
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Update value" }));
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getByText("$120,000.00")).toBeInTheDocument();
+    expect(within(dialog).getByText("annual statement")).toBeInTheDocument();
+    // The form starts from the latest figure.
+    expect(within(dialog).getByLabelText("Value")).toHaveValue("120000.00");
+
+    await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+    expect(within(dialog).getByLabelText("Date")).toHaveValue("2026-09-30");
+    const value = within(dialog).getByLabelText("Value");
+    await user.clear(value);
+    await user.type(value, "125,000");
+    await user.click(within(dialog).getByRole("button", { name: "Update valuation" }));
+
+    expect(m.updateValuation).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ date: "2026-09-30", value: 12_500_000 }),
+    );
+  });
+
+  it("deleting a valuation needs a second click", async () => {
+    store = [acct(1, { name: "Super", kind: "super" })];
+    m.listValuations.mockResolvedValue([
+      {
+        id: 7,
+        account_id: 1,
+        date: "2026-09-30",
+        value: 12_000_000,
+        note: null,
+        created_at: "2026-09-30T00:00:00Z",
+      },
+    ]);
+    const user = renderPage();
+    await user.click(await screen.findByRole("button", { name: "Update value" }));
+    const dialog = screen.getByRole("dialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+    expect(m.deleteValuation).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Really delete?" }));
+    expect(m.deleteValuation).toHaveBeenCalledWith(7);
   });
 
   it("load failure shows a retry", async () => {

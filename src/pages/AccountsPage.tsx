@@ -7,6 +7,7 @@ import {
   canBeOffsetTarget,
   formatBsb,
   groupAccounts,
+  isValued,
   KIND_LABELS,
   loanSummary,
   totalCents,
@@ -14,6 +15,7 @@ import {
 import { Account, api, Balances, errorMessage } from "../lib/api";
 import { formatCents } from "../lib/money";
 import { AccountForm, SavedVerb } from "./AccountForm";
+import { ValuationForm } from "./ValuationForm";
 
 export function AccountsPage() {
   const toast = useToast();
@@ -24,6 +26,7 @@ export function AccountsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [editing, setEditing] = useState<Account | "new" | null>(null);
+  const [valuing, setValuing] = useState<Account | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -99,6 +102,23 @@ export function AccountsPage() {
       ),
     },
     { key: "balance", header: "Balance", width: "160px", money: balanceOf },
+    {
+      key: "actions",
+      header: "",
+      width: "140px",
+      render: (a) =>
+        isValued(a.kind) ? (
+          <Button
+            variant="ghost"
+            onClick={(e) => {
+              e.stopPropagation();
+              setValuing(a);
+            }}
+          >
+            Update value
+          </Button>
+        ) : null,
+    },
   ];
 
   if (loadError) {
@@ -172,6 +192,14 @@ export function AccountsPage() {
           accounts={all}
           onClose={() => setEditing(null)}
           onSaved={onSaved}
+        />
+      )}
+
+      {valuing !== null && (
+        <ValuationForm
+          account={valuing}
+          onClose={() => setValuing(null)}
+          onSaved={() => void load()}
         />
       )}
     </div>

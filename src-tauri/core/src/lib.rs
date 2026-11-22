@@ -15,6 +15,7 @@ pub mod reports;
 pub mod rules;
 pub mod transactions;
 pub mod transfers;
+pub mod valuations;
 pub mod vault;
 
 pub use accounts::{Account, AccountInput, AccountKind};
@@ -25,4 +26,5 @@ pub use export::ExportedFile;
 pub use money::{Money, MoneyError};
 pub use transactions::{LedgerRow, Transaction, TransactionInput, TransactionQuery};
 pub use transfers::{Transfer, TransferInput};
+pub use valuations::{Valuation, ValuationInput};
 pub use vault::{MIN_PASSWORD_CHARS, Vault, VaultStatus};

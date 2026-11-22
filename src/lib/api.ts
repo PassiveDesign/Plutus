@@ -80,8 +80,25 @@ export type Account = AccountInput & {
   created_at: string;
 };
 
-/** Current balance per account id (cents). Keys are id strings (JSON). */
+/** Current balance per account id (cents). Keys are id strings (JSON).
+ *  Valued accounts (super, shares, investments, property) report their
+ *  latest valuation; everything else opening balance + transactions. */
 export type Balances = Record<string, number>;
+
+// ---- Valuations (mirror plutus_core::valuations) ----
+
+/** One market valuation. `value` is signed cents, assets positive. */
+export type ValuationInput = {
+  date: string;
+  value: number;
+  note: string | null;
+};
+
+export type Valuation = ValuationInput & {
+  id: number;
+  account_id: number;
+  created_at: string;
+};
 
 // ---- Transactions (mirror plutus_core::transactions) ----
 
@@ -329,6 +346,16 @@ export const api = {
   setAccountArchived: (id: number, archived: boolean) =>
     invoke<Account>("set_account_archived", { id, archived }),
   accountBalances: () => invoke<Balances>("account_balances"),
+
+  /** Valuations for one valued account, newest first. */
+  listValuations: (accountId: number) =>
+    invoke<Valuation[]>("list_valuations", { accountId }),
+  /** Re-recording a date replaces that day's valuation. */
+  addValuation: (accountId: number, input: ValuationInput) =>
+    invoke<Valuation>("add_valuation", { accountId, input }),
+  updateValuation: (id: number, input: ValuationInput) =>
+    invoke<Valuation>("update_valuation", { id, input }),
+  deleteValuation: (id: number) => invoke<void>("delete_valuation", { id }),
 
   listTransactions: (query: TransactionQuery = {}) =>
     invoke<LedgerRow[]>("list_transactions", { query }),

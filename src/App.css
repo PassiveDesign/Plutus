@@ -1385,3 +1385,54 @@ button:disabled {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---- Valuations ---- */
+
+.valuation-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.valuation-table caption {
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding-bottom: 0.35rem;
+}
+
+.valuation-table th,
+.valuation-table td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.valuation-table th {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.valuation-table .money {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-actions {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: flex-end;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}

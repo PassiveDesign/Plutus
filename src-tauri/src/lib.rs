@@ -6,8 +6,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use plutus_core::{
     Account, AccountInput, BackupFile, Category, CategoryGroup, CategoryInput, Database, DbError,
     ExportedFile, GroupInput, LedgerRow, MIN_PASSWORD_CHARS, Money, MoneyError, Transaction,
-    TransactionInput, TransactionQuery, Transfer, TransferInput, Vault, accounts, backup, budgets,
-    categories, export, import, reports, rules, transactions, transfers,
+    TransactionInput, TransactionQuery, Transfer, TransferInput, Valuation, ValuationInput, Vault,
+    accounts, backup, budgets, categories, export, import, reports, rules, transactions, transfers,
+    valuations,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -208,6 +209,40 @@ async fn set_account_archived(
 #[tauri::command]
 async fn account_balances(state: State<'_, AppState>) -> CmdResult<HashMap<i64, Money>> {
     with_db(&state.vault, accounts::balances).await
+}
+
+/// Valuations for one valued account (super, shares, investment, property),
+/// newest first.
+#[tauri::command]
+async fn list_valuations(state: State<'_, AppState>, account_id: i64) -> CmdResult<Vec<Valuation>> {
+    with_db(&state.vault, move |db| valuations::list(db, account_id)).await
+}
+
+/// Record a valuation; an existing valuation on the same date is replaced.
+#[tauri::command]
+async fn add_valuation(
+    state: State<'_, AppState>,
+    account_id: i64,
+    input: ValuationInput,
+) -> CmdResult<Valuation> {
+    with_db(&state.vault, move |db| {
+        valuations::add(db, account_id, &input)
+    })
+    .await
+}
+
+#[tauri::command]
+async fn update_valuation(
+    state: State<'_, AppState>,
+    id: i64,
+    input: ValuationInput,
+) -> CmdResult<Valuation> {
+    with_db(&state.vault, move |db| valuations::update(db, id, &input)).await
+}
+
+#[tauri::command]
+async fn delete_valuation(state: State<'_, AppState>, id: i64) -> CmdResult<()> {
+    with_db(&state.vault, move |db| valuations::delete(db, id)).await
 }
 
 /// One page of transactions, newest first, with running balances when the
@@ -612,6 +647,10 @@ pub fn run() {
             update_account,
             set_account_archived,
             account_balances,
+            list_valuations,
+            add_valuation,
+            update_valuation,
+            delete_valuation,
             list_transactions,
             count_transactions,
             add_transaction,
@@ -660,6 +699,7 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use plutus_core::AccountKind;
 
     #[test]
     fn app_info_reports_crate_version() {
@@ -1116,6 +1156,61 @@ mod tests {
             .unwrap();
             // Still unlocked and usable after the swap.
             assert_eq!(guard(&vault).status().as_str(), "unlocked");
+        });
+    }
+
+    #[test]
+    fn valuations_round_trip_and_drive_the_balance() {
+        let dir = tempfile::tempdir().unwrap();
+        let vault = Arc::new(Mutex::new(Vault::new(Database::path_in(dir.path()))));
+        tauri::async_runtime::block_on(async {
+            guard(&vault).create("long enough pw").unwrap();
+            let mut account = input("Super");
+            account.kind = AccountKind::Super;
+            account.opening_balance = Money::from_cents(10_000);
+            let account = with_db(&vault, move |db| accounts::create(db, &account))
+                .await
+                .unwrap();
+
+            let first = with_db(&vault, move |db| {
+                valuations::add(
+                    db,
+                    account.id,
+                    &ValuationInput {
+                        date: "2026-09-30".parse().unwrap(),
+                        value: Money::from_cents(120_000),
+                        note: Some("statement".into()),
+                    },
+                )
+            })
+            .await
+            .unwrap();
+            assert_eq!(first.value.cents(), 120_000);
+
+            // Re-recording the same date replaces rather than duplicates.
+            with_db(&vault, move |db| {
+                valuations::add(
+                    db,
+                    account.id,
+                    &ValuationInput {
+                        date: "2026-09-30".parse().unwrap(),
+                        value: Money::from_cents(125_000),
+                        note: None,
+                    },
+                )
+            })
+            .await
+            .unwrap();
+            let listed = with_db(&vault, move |db| valuations::list(db, account.id))
+                .await
+                .unwrap();
+            assert_eq!(listed.len(), 1);
+            assert_eq!(listed[0].value.cents(), 125_000);
+
+            let bal = with_db(&vault, move |db| accounts::balance(db, account.id))
+                .await
+                .unwrap();
+            assert_eq!(bal.cents(), 125_000);
         });
     }
 

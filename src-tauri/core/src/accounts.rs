@@ -464,7 +464,7 @@ pub fn balance(db: &Database, id: i64) -> Result<Money, DbError> {
 
 fn balances_where(db: &Database, id: Option<i64>) -> Result<HashMap<i64, Money>, DbError> {
     let mut stmt = db.conn().prepare(
-        "SELECT a.id, a.opening_balance_cents, COALESCE(SUM(t.amount_cents), 0) \
+        "SELECT a.id, a.kind, a.opening_balance_cents, COALESCE(SUM(t.amount_cents), 0) \
          FROM accounts a \
          LEFT JOIN transactions t ON t.account_id = a.id AND t.date >= a.opening_date \
          WHERE ?1 IS NULL OR a.id = ?1 \
@@ -473,17 +473,44 @@ fn balances_where(db: &Database, id: Option<i64>) -> Result<HashMap<i64, Money>,
     let rows = stmt.query_map([id], |r| {
         Ok((
             r.get::<_, i64>(0)?,
-            r.get::<_, i64>(1)?,
+            r.get::<_, String>(1)?,
             r.get::<_, i64>(2)?,
+            r.get::<_, i64>(3)?,
         ))
+    })?;
+    // Valued accounts (super, shares, investments, property) are carried at
+    // their latest market valuation, not opening balance + transactions.
+    let latest = latest_valuations(db)?;
+    let mut out = HashMap::new();
+    for row in rows {
+        let (account_id, kind, opening, movement) = row?;
+        let computed = Money::from_cents(opening)
+            .checked_add(Money::from_cents(movement))
+            .ok_or_else(|| invalid("amount", "Balance is too large to calculate."))?;
+        let total = match latest.get(&account_id) {
+            Some(value) if AccountKind::parse(&kind).is_some_and(|k| k.is_valued()) => *value,
+            _ => computed,
+        };
+        out.insert(account_id, total);
+    }
+    Ok(out)
+}
+
+/// Newest valuation per account (accounts without one are absent).
+fn latest_valuations(db: &Database) -> Result<HashMap<i64, Money>, DbError> {
+    let mut stmt = db.conn().prepare(
+        "SELECT v.account_id, v.value_cents \
+         FROM valuations v \
+         WHERE v.date = (SELECT MAX(w.date) FROM valuations w \
+                         WHERE w.account_id = v.account_id)",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok((r.get::<_, i64>(0)?, Money::from_cents(r.get::<_, i64>(1)?)))
     })?;
     let mut out = HashMap::new();
     for row in rows {
-        let (id, opening, movement) = row?;
-        let total = Money::from_cents(opening)
-            .checked_add(Money::from_cents(movement))
-            .ok_or_else(|| invalid("amount", "Balance is too large to calculate."))?;
-        out.insert(id, total);
+        let (account_id, value) = row?;
+        out.insert(account_id, value);
     }
     Ok(out)
 }

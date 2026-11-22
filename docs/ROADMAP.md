@@ -74,8 +74,12 @@ Feature scope is a first draft — edit freely.
 
 ## M5b — Valuations (super, shares, investments, property)
 
-- [ ] Valuation history per valued account (date + market value); balance = latest valuation
-- [ ] Quick "update value" action from the Accounts page
+- [x] Valuation history per valued account (date + market value); balance = latest valuation
+- [x] Quick "update value" action from the Accounts page
+
+## M5b.5 — Release
+
+- [ ] Cut `v0.10.0` (valuations); verify v9 → v11 upgrade
 
 ## M6 — Reports & dashboard
 

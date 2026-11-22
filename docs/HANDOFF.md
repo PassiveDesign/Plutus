@@ -8,6 +8,17 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ### Newest first
 
+- **Valuations for valued accounts (M5b).** Migration 0011 adds `valuations`
+  (one row per account per day, `UNIQUE (account_id, date)`); core module
+  `plutus_core::valuations` with `ValuationInput`, `add` (upserts on the same
+  date), `update` (conflicts instead of overwriting another day), `list`,
+  `latest_per_account`. `accounts::balances` now returns the latest valuation
+  for super/shares/investment/property, falling back to the opening balance
+  when there is none. Commands: `list_valuations`, `add_valuation`,
+  `update_valuation`. UI: "Update value" on valued accounts opens
+  `ValuationForm` — history plus an add/edit form with the latest figure
+  pre-filled. Version bumped to 0.10.0. Tests: 151 core, 21 shell, 165 UI.
+
 - **Generic CSV import + presets done.** `plutus-core::import::generic`
   (`headers`, `shape`, `guess_mapping`, `validate`, `parse`) and
   `import::presets` (list/save/delete, migration 0010); commands `import_shape`,
@@ -36,15 +47,15 @@ Rewritten at the end of every session. Read after AGENTS.md.
 
 ## Next task
 
-1. **v0.9.0 (generic CSV import)** is a draft release: `AppImage` 108.4 MB and
-   `.deb` 5.3 MB, built on the self-hosted runner (run 44905996011). Owner
-   smoke test, then publish with `gh release edit v0.9.0 --draft=false --latest`.
-   It supersedes v0.8.0; delete the v0.8.0 draft afterwards.
-2. **Windows installers are not being built.** A Tauri Windows build cannot be
-   cross-compiled from Linux, so either restore GitHub billing and set the repo
-   variable `WINDOWS_CI=true`, or register a second runner on a Windows machine.
-3. Remaining M7: auto-lock after idle (optional; the owner has not asked).
-4. Remaining M4: OFX/QFX and QIF import, then optional PDF statements.
+1. Publish the drafts: v0.8.0 and v0.9.0 are drafts with all five installers
+   (v0.9.0 has no Windows assets — the hosted runner is gated off). Smoke-test
+   v0.9.0, then `gh release edit v0.9.0 --draft=false --latest` and delete
+   v0.8.0.
+2. Cut `v0.10.0` (valuations) after the draft backlog is cleared; verify the
+   v9 → v11 upgrade on first unlock.
+3. Remaining M7: auto-lock after idle (optional).
+4. Remaining M4: OFX/QFX/QIF import, optional PDF.
+5. M8: app icon and branding, polish, keyboard shortcuts.
 
 ## Open questions for the owner
 
@@ -61,6 +72,10 @@ Rewritten at the end of every session. Read after AGENTS.md.
   shell-only mistakes before they cost a CI round trip. `cargo test -p
   plutus-core` stays the fast inner loop.
 - Cold `plutus-core` build takes ~80s (SQLCipher + vendored OpenSSL).
+- **Vitest needs Node 22+.** The system Node is 20.19, and jsdom 31 pulls
+  undici 8 which fails on Node 20 (`reading 'toString'`/forks pool errors).
+  Run the UI tests with a newer Node on PATH:
+  `export PATH=/home/mathew/.hermes/tools/node-26.12.1-linux-x64/bin:$PATH`.
 - `gh` lives at `~/.local/bin/gh`; Rust via rustup in `~/.cargo`.
 
 ## CI setup (self-hosted runner)
