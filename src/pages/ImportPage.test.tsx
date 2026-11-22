@@ -13,6 +13,8 @@ vi.mock("../lib/api", async (orig) => {
       ...real.api,
       listAccounts: vi.fn(),
       previewBomImport: vi.fn(),
+      previewOfxImport: vi.fn(),
+      previewQifImport: vi.fn(),
       importShape: vi.fn(),
       previewGenericImport: vi.fn(),
       listImportPresets: vi.fn(),
@@ -95,6 +97,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   m.listAccounts.mockResolvedValue([acct(1, "Bills Offset"), acct(2, "Everyday Offset", "Bank of Melbourne")]);
   m.previewBomImport.mockResolvedValue(preview());
+  m.previewOfxImport.mockResolvedValue(preview());
+  m.previewQifImport.mockResolvedValue(preview());
   m.importShape.mockResolvedValue({
     headers: ["Date", "Description", "Debit", "Credit", "Balance"],
     mapping: {
@@ -404,5 +408,31 @@ describe("ImportPage", () => {
     await user.click(await screen.findByRole("button", { name: "Preview" }));
     expect(await screen.findByText(/The amount column/)).toBeInTheDocument();
     expect(screen.getByText("Map the columns")).toBeInTheDocument();
+  });
+
+  it("sends OFX and QFX statements straight to the OFX importer", async () => {
+    const ofx = "OFXHEADER:100\n<OFX><STMTTRN><DTPOSTED>20260116</DTPOSTED><TRNAMT>-6.50</TRNAMT><NAME>Bakery</NAME></STMTTRN></OFX>";
+    const { user } = renderPage();
+    await screen.findByLabelText("Import into");
+    await upload(user, ofx, "statement.ofx");
+    expect(m.previewOfxImport).toHaveBeenCalledWith(2, ofx);
+    expect(m.importShape).not.toHaveBeenCalled();
+    expect(await screen.findByText(/1 new/)).toBeInTheDocument();
+  });
+
+  it("asks for the QIF date format before previewing", async () => {
+    const qif = "!Type:Bank\nD16/01/2026\nT-6.50\nPBakery\n^\n";
+    const { user } = renderPage();
+    await screen.findByLabelText("Import into");
+    await upload(user, qif, "export.qif");
+
+    expect(await screen.findByText("QIF dates")).toBeInTheDocument();
+    expect(m.previewQifImport).not.toHaveBeenCalled();
+    expect(m.importShape).not.toHaveBeenCalled();
+
+    await user.selectOptions(screen.getByLabelText("Date format"), "dmy");
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(m.previewQifImport).toHaveBeenCalledWith(2, qif, "dmy");
+    expect(await screen.findByText(/1 new/)).toBeInTheDocument();
   });
 });

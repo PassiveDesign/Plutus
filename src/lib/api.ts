@@ -368,6 +368,12 @@ export const api = {
   deleteTransaction: (id: number) => invoke<void>("delete_transaction", { id }),
   previewBomImport: (accountId: number, text: string) =>
     invoke<ImportPreview>("preview_bom_import", { accountId, text }),
+  /** OFX/QFX statement (SGML or XML). */
+  previewOfxImport: (accountId: number, text: string) =>
+    invoke<ImportPreview>("preview_ofx_import", { accountId, text }),
+  /** QIF file; dates are ambiguous so the format is explicit. */
+  previewQifImport: (accountId: number, text: string, dateFormat: DateFormat) =>
+    invoke<ImportPreview>("preview_qif_import", { accountId, text, dateFormat }),
   /** Header row and a guessed mapping for any other bank's CSV. */
   importShape: (text: string) => invoke<ImportFileShape>("import_shape", { text }),
   previewGenericImport: (accountId: number, text: string, mapping: ImportMapping) =>

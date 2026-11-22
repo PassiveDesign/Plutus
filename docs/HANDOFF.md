@@ -2,11 +2,18 @@
 
 Rewritten at the end of every session. Read after AGENTS.md.
 
-**Last updated:** 2026-11-21
+**Last updated:** 2026-11-22
 
 ## Current state
 
 ### Newest first
+
+- **OFX/QFX and QIF import.** `import::ofx` reads both OFX flavours (SGML and
+  XML) with one tolerant scanner; `import::qif` reads QIF with an explicit
+  date format. Commands `preview_ofx_import` and `preview_qif_import`.
+  `ImportPage` picks the importer by content: OFX/QFX, then QIF (which asks
+  for the date format first), then Bank of Melbourne's header row, then column
+  mapping. Tests: 163 core, 21 shell, 167 UI.
 
 - **Valuations for valued accounts (M5b).** Migration 0011 adds `valuations`
   (one row per account per day, `UNIQUE (account_id, date)`); core module

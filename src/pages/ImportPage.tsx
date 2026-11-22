@@ -66,6 +66,21 @@ function isBankOfMelbourne(headers: string[]): boolean {
   );
 }
 
+/** OFX/QFX statements start with an OFX header or an <OFX> tag. */
+function looksLikeOfx(text: string): boolean {
+  const head = text.replace(/^\uFEFF/, "");
+  return head.includes("OFXHEADER") || head.includes("<OFX>") || head.includes("<STMTTRN>");
+}
+
+/** QIF files carry a `!Type:` section header near the top. */
+function looksLikeQif(text: string): boolean {
+  return text
+    .replace(/^\uFEFF/, "")
+    .split(/\r?\n/)
+    .slice(0, 20)
+    .some((line) => line.trim().startsWith("!Type:"));
+}
+
 const DATE_FORMATS: { value: DateFormat; label: string; example: string }[] = [
   { value: "mdy", label: "Month first", example: "11/20/2026" },
   { value: "dmy", label: "Day first", example: "20/11/2026" },
@@ -107,6 +122,9 @@ export function ImportPage({ onViewTransactions }: Props) {
   const [presetId, setPresetId] = useState("");
   const [presetName, setPresetName] = useState("");
   const [savingPreset, setSavingPreset] = useState(false);
+  // QIF: dates are ambiguous, so the owner picks the format before previewing.
+  const [qifText, setQifText] = useState<string | null>(null);
+  const [qifFormat, setQifFormat] = useState<DateFormat>("mdy");
 
   useEffect(() => {
     api
@@ -158,6 +176,38 @@ export function ImportPage({ onViewTransactions }: Props) {
     }
   }
 
+  async function runOfxPreview(acct: number, f: { name: string; text: string }) {
+    setBusy(true);
+    setFileError(null);
+    try {
+      const p = await api.previewOfxImport(acct, f.text);
+      setPreview(p);
+      setTicked(new Set(p.rows.filter((r) => r.status === "new").map((r) => r.line)));
+    } catch (e) {
+      const { field, general } = splitError(e);
+      setPreview(null);
+      setFileError(field.file ?? field.account_id ?? general ?? "Couldn't read the statement.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runQifPreview(acct: number, f: { name: string; text: string }, format: DateFormat) {
+    setBusy(true);
+    setFileError(null);
+    try {
+      const p = await api.previewQifImport(acct, f.text, format);
+      setPreview(p);
+      setTicked(new Set(p.rows.filter((r) => r.status === "new").map((r) => r.line)));
+    } catch (e) {
+      const { field, general } = splitError(e);
+      setPreview(null);
+      setFileError(field.file ?? field.account_id ?? general ?? "Couldn't read the file.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function chooseFile(e: ChangeEvent<HTMLInputElement>) {
     const picked = e.currentTarget.files?.[0];
     e.currentTarget.value = ""; // allow re-picking the same file
@@ -169,6 +219,7 @@ export function ImportPage({ onViewTransactions }: Props) {
     setMappingError(null);
     setPresetId("");
     setPresetName("");
+    setQifText(null);
     let text: string;
     try {
       text = await readText(picked);
@@ -179,8 +230,20 @@ export function ImportPage({ onViewTransactions }: Props) {
     const f = { name: picked.name, text };
     setFile(f);
 
-    // The header row decides which importer handles the file. Bank of
-    // Melbourne's fixed columns are recognised; anything else gets mapped.
+    // OFX/QFX and QIF are self-describing; everything else is CSV, where the
+    // header row decides which importer handles the file.
+    if (looksLikeOfx(text)) {
+      await runOfxPreview(accountId, f);
+      return;
+    }
+    if (looksLikeQif(text)) {
+      setQifText(text);
+      setShape(null);
+      setMapping(null);
+      setFileError(null);
+      return;
+    }
+
     setBusy(true);
     setFileError(null);
     let fileShape: ImportFileShape;
@@ -211,8 +274,9 @@ export function ImportPage({ onViewTransactions }: Props) {
   function changeAccount(id: number) {
     setAccountId(id);
     setDone(null);
-    if (file && mapping && shape) void runGenericPreview(id, file, mapping);
-    else if (file && !shape) void runPreview(id, file);
+    if (file && qifText) void runQifPreview(id, file, qifFormat);
+    else if (file && mapping && shape) void runGenericPreview(id, file, mapping);
+    else if (file && !shape && !qifText) void runPreview(id, file);
   }
 
   function setMapField(field: keyof ImportMapping, value: string | null) {
@@ -291,6 +355,7 @@ export function ImportPage({ onViewTransactions }: Props) {
     setMappingError(null);
     setPresetId("");
     setPresetName("");
+    setQifText(null);
   }
 
   async function doImport() {
@@ -439,6 +504,40 @@ export function ImportPage({ onViewTransactions }: Props) {
         <p className="field-error" role="alert">
           {fileError}
         </p>
+      )}
+
+      {qifText && !preview && (
+        <div className="import-mapping">
+          <h2>QIF dates</h2>
+          <p className="muted">
+            {file?.name} is a QIF file. QIF writes dates day/month in whatever order the exporting
+            program used, so tell Plutus which way to read them.
+          </p>
+          <div className="toolbar">
+            <SelectField
+              label="Date format"
+              hint={DATE_FORMATS.find((f) => f.value === qifFormat)?.example}
+              value={qifFormat}
+              onChange={(e) => setQifFormat(e.currentTarget.value as DateFormat)}
+              disabled={busy}
+            >
+              {DATE_FORMATS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label} ({f.example})
+                </option>
+              ))}
+            </SelectField>
+            <Button
+              onClick={() => {
+                if (file && accountId !== null) void runQifPreview(accountId, file, qifFormat);
+              }}
+              busy={busy}
+              busyLabel="Reading…"
+            >
+              Preview
+            </Button>
+          </div>
+        </div>
       )}
 
       {shape && mapping && !preview && (
@@ -689,10 +788,10 @@ export function ImportPage({ onViewTransactions }: Props) {
             <span className="spacer" />
             <Button
               variant="secondary"
-              onClick={() => (shape ? setPreview(null) : reset())}
+              onClick={() => (shape || qifText ? setPreview(null) : reset())}
               disabled={busy}
             >
-              {shape ? "Back to mapping" : "Cancel"}
+              {shape ? "Back to mapping" : qifText ? "Back to dates" : "Cancel"}
             </Button>
             <Button onClick={doImport} disabled={tickedCount === 0} busy={busy} busyLabel="Importing…">
               {tickedCount === 0

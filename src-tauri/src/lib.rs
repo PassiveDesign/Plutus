@@ -407,6 +407,35 @@ async fn preview_bom_import(
     .await
 }
 
+/// Preview an OFX/QFX statement (SGML or XML; both are accepted).
+#[tauri::command]
+async fn preview_ofx_import(
+    state: State<'_, AppState>,
+    account_id: i64,
+    text: String,
+) -> CmdResult<import::Preview> {
+    with_db(&state.vault, move |db| {
+        let rows = import::ofx::parse(&text)?;
+        import::preview(db, account_id, rows)
+    })
+    .await
+}
+
+/// Preview a QIF file. Dates are ambiguous, so the owner states the format.
+#[tauri::command]
+async fn preview_qif_import(
+    state: State<'_, AppState>,
+    account_id: i64,
+    text: String,
+    date_format: import::generic::DateFormat,
+) -> CmdResult<import::Preview> {
+    with_db(&state.vault, move |db| {
+        let rows = import::qif::parse(&text, date_format)?;
+        import::preview(db, account_id, rows)
+    })
+    .await
+}
+
 /// Import the rows the owner kept from a preview (one SQL transaction).
 #[tauri::command]
 async fn commit_import(
@@ -668,6 +697,8 @@ pub fn run() {
             update_category,
             set_category_archived,
             preview_bom_import,
+            preview_ofx_import,
+            preview_qif_import,
             import_shape,
             preview_generic_import,
             list_import_presets,

@@ -210,3 +210,14 @@ Short, dated entries. Future sessions follow these without re-deciding.
   kinds — anything else is rejected. The Accounts page shows "Update value"
   only on those accounts and opens the history with the latest figure
   pre-filled.
+
+- **2026-11-22 — OFX/QFX and QIF import.** OFX arrives in two flavours — old
+  SGML (unclosed leaves, `OFXHEADER:` preamble) and XML — so one scanner reads
+  both and accepts either. Statements in a currency other than AUD are refused
+  rather than converted. QIF dates are ambiguous by nature (the format carries
+  no hint), so the owner picks month-first or day-first explicitly, exactly as
+  for generic CSV; a wrong guess would silently corrupt history. QIF split
+  lines are ignored because the record's total amount is what the bank moved.
+  Importer choice is by content, not file extension: OFX/QFX by `OFXHEADER`/
+  `<OFX>`, QIF by a `!Type:` header, Bank of Melbourne by its exact column
+  row, everything else by column mapping.

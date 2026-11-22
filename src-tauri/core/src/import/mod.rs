@@ -10,7 +10,9 @@
 
 pub mod bom;
 pub mod generic;
+pub mod ofx;
 pub mod presets;
+pub mod qif;
 
 use std::collections::{HashMap, HashSet};
 
