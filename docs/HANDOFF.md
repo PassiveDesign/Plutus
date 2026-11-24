@@ -108,12 +108,10 @@ Rewritten at the end of every session. Read after AGENTS.md.
   platforms and the workflows use them (`ubuntu-22.04` + `windows-latest`).
   Windows installers (NSIS + MSI) are built at release time; a Tauri Windows
   build cannot be cross-compiled from Linux.
-- A self-hosted runner may still be registered on the dev host
-  (`~/actions-runner-plutus`, name `plutus-local`, labels
-  `self-hosted, linux, x64, plutus`) from when the account's Actions spending
-  limit blocked hosted runners. It is no longer needed; stop it with
-  `pkill -f Runner.Listener` and remove it with
-  `gh api -X DELETE repos/PassiveDesign/Plutus/actions/runners/<id>`.
+- A self-hosted runner was registered on the dev host
+  (`~/actions-runner-plutus`, name `plutus-local`) while the account's Actions
+  spending limit blocked hosted runners. It has been **stopped and
+  deregistered** — the directory can be deleted.
 - The old `WINDOWS_CI` repository variable is no longer read by any workflow.
 
 ## Half-done work
