@@ -102,25 +102,19 @@ Rewritten at the end of every session. Read after AGENTS.md.
   `export PATH=/home/mathew/.hermes/tools/node-26.12.1-linux-x64/bin:$PATH`.
 - `gh` lives at `~/.local/bin/gh`; Rust via rustup in `~/.cargo`.
 
-## CI setup (self-hosted runner)
+## CI setup
 
-- GitHub-hosted Actions minutes are blocked on this account ("recent account
-  payments have failed or your spending limit needs to be increased"), so Linux
-  CI and Linux release builds run on a **self-hosted runner** instead:
-  - Directory `~/actions-runner-plutus`, runner name `plutus-local`, labels
-    `self-hosted, linux, x64, plutus`, version 2.338.2.
-  - Start it with `cd ~/actions-runner-plutus && ./run.sh` (it is not a systemd
-    service, so it does not survive a reboot; restart it after booting).
-  - It runs as the owner's user and executes repo code — fine for this private
-    single-author repo, not for untrusted forks.
-  - Check its state with `gh api repos/PassiveDesign/Plutus/actions/runners`.
-- Windows jobs are gated on the repo variable `WINDOWS_CI == 'true'` and are
-  skipped while it is unset. Set it once billing works:
-  `gh variable set WINDOWS_CI --body true`.
-- The self-hosted runner has no `rpm` toolchain (installing it needs sudo), so
-  the Linux release job passes `--bundles deb,appimage`; `rpm` stays in
-  `tauri.conf.json` for hosted builds.
-- An empty commit `8cd8f53` sits on `main` from the billing diagnosis.
+- The repo is **public**, so GitHub-hosted runners are free again for both
+  platforms and the workflows use them (`ubuntu-22.04` + `windows-latest`).
+  Windows installers (NSIS + MSI) are built at release time; a Tauri Windows
+  build cannot be cross-compiled from Linux.
+- A self-hosted runner may still be registered on the dev host
+  (`~/actions-runner-plutus`, name `plutus-local`, labels
+  `self-hosted, linux, x64, plutus`) from when the account's Actions spending
+  limit blocked hosted runners. It is no longer needed; stop it with
+  `pkill -f Runner.Listener` and remove it with
+  `gh api -X DELETE repos/PassiveDesign/Plutus/actions/runners/<id>`.
+- The old `WINDOWS_CI` repository variable is no longer read by any workflow.
 
 ## Half-done work
 
